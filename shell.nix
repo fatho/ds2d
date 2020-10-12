@@ -11,6 +11,7 @@ in
       rustfmt
       clippy
       cargo-audit
+      cargo-edit
 
       # Nix tools
       niv
