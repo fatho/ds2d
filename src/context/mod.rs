@@ -1,11 +1,13 @@
-use glow::HasContext;
 use glutin::{
     dpi::LogicalSize,
     event::{ElementState, Event, WindowEvent},
     event_loop::ControlFlow,
     event_loop::EventLoop,
 };
+use log::error;
 use std::rc::Rc;
+
+use crate::graphics::Color;
 
 pub mod graphics;
 pub mod keyboard;
@@ -82,9 +84,13 @@ impl ContextBuilder {
 }
 
 /// Run the game and never return.
-pub fn run(event_loop: EventLoop<()>, mut context: Context) -> ! {
+pub fn run(
+    event_loop: EventLoop<()>,
+    mut context: Context,
+    mut game: impl super::Game + 'static,
+) -> ! {
     event_loop.run(move |event, _target, control_flow| {
-        context.handle_event(event, control_flow);
+        context.handle_event(event, control_flow, &mut game);
     })
 }
 
@@ -115,6 +121,7 @@ impl Context {
         &mut self,
         event: glutin::event::Event<()>,
         control_flow: &mut ControlFlow,
+        game: &mut impl super::Game,
     ) {
         match event {
             Event::NewEvents(_) => {}
@@ -124,8 +131,7 @@ impl Context {
             } => {
                 match event {
                     WindowEvent::CloseRequested => {
-                        // TODO: let the game handle close event
-                        *control_flow = glutin::event_loop::ControlFlow::Exit;
+                        *control_flow = ControlFlow::Exit;
                     }
                     WindowEvent::Resized(new_size) => self.window.windowed_context.resize(new_size),
                     WindowEvent::ScaleFactorChanged { .. } => {
@@ -185,7 +191,10 @@ impl Context {
             Event::Resumed => {}
             Event::MainEventsCleared => {
                 self.timer.tick();
-                // TODO: call update() here
+                if let Err(err) = game.update(self) {
+                    error!("Game::update failed: {}", err);
+                    *control_flow = ControlFlow::Exit;
+                }
 
                 // Clear transient event state
                 self.keyboard.unicode_text.clear();
@@ -196,19 +205,27 @@ impl Context {
                 self.window.windowed_context.window().request_redraw();
             }
             Event::RedrawRequested(_) => {
-                unsafe {
-                    self.graphics
-                        .gl
-                        .clear_color(100.0 / 255.0, 149.0 / 255.0, 237.0 / 255.0, 1.0);
-                    self.graphics.gl.clear(glow::COLOR_BUFFER_BIT);
+                // Clear the screen in a hideous magenta so that its clear if the Game forgot to clear it
+                let draw_result =
+                    crate::graphics::clear(self, Color::MAGENTA).and_then(|_| game.draw(self));
+                if let Err(err) = draw_result {
+                    error!("Game::draw failed: {}", err);
+                    *control_flow = ControlFlow::Exit;
                 }
-                // TODO: call draw() here
                 self.window.windowed_context.swap_buffers().unwrap();
             }
             Event::RedrawEventsCleared => {
-                *control_flow = glutin::event_loop::ControlFlow::Poll;
+                *control_flow = ControlFlow::Poll;
             }
-            Event::LoopDestroyed => {}
+            Event::LoopDestroyed => {
+                if let Err(err) = game.exit(self) {
+                    error!(
+                        "Game::exit failed, any state might not have been persisted: {}",
+                        err
+                    );
+                    // Can't do much more here, let's hope for the best
+                }
+            }
         }
     }
 }

@@ -1,4 +1,21 @@
+use ds2d::{graphics::Color, GameResult};
 use log::error;
+
+pub struct HelloGame;
+
+impl ds2d::Game for HelloGame {
+    fn draw(&mut self, ctx: &mut ds2d::Context) -> GameResult<()> {
+        ds2d::graphics::clear(ctx, Color::CORNFLOWER_BLUE)
+    }
+
+    fn update(&mut self, _ctx: &mut ds2d::Context) -> GameResult<()> {
+        Ok(())
+    }
+
+    fn exit(&mut self, _ctx: &mut ds2d::Context) -> GameResult<()> {
+        Ok(())
+    }
+}
 
 fn main() {
     stderrlog::new().quiet(false).verbosity(5).init().unwrap();
@@ -11,5 +28,7 @@ fn main() {
         }
     };
 
-    ds2d::run(event_loop, context)
+    let game = HelloGame;
+
+    ds2d::run(event_loop, context, game)
 }
