@@ -1,13 +1,17 @@
-use std::{rc::Rc};
 use glow::HasContext;
-use glutin::{event::{ElementState, Event, WindowEvent}, event_loop::ControlFlow, event_loop::EventLoop};
+use glutin::{
+    dpi::LogicalSize,
+    event::{ElementState, Event, WindowEvent},
+    event_loop::ControlFlow,
+    event_loop::EventLoop,
+};
+use std::rc::Rc;
 
+pub mod graphics;
 pub mod keyboard;
 pub mod mouse;
 pub mod timer;
 pub mod window;
-pub mod graphics;
-
 
 /// The types of errors that can occur when initializing the context.
 #[derive(Debug)]
@@ -31,13 +35,31 @@ impl From<glutin::ContextError> for InitError {
 /// and in particular a window with a graphics context.
 pub struct ContextBuilder {
     title: String,
+    size: LogicalSize<f64>,
 }
 
 impl ContextBuilder {
-    pub fn new<T: Into<String>>(title: T) -> Self {
+    pub fn new() -> Self {
         Self {
-            title: title.into(),
+            title: String::new(),
+            size: LogicalSize {
+                width: 800.0,
+                height: 600.0,
+            },
         }
+    }
+
+    /// Set the title of the game window.
+    pub fn title<T: Into<String>>(mut self, title: T) -> Self {
+        self.title = title.into();
+        self
+    }
+
+    /// Set the logical size of the game window (before being scaled by the DPI factor).
+    /// TODO: is there a way of providing a physical size for initialization?
+    pub fn logical_size(mut self, size: LogicalSize<f64>) -> Self {
+        self.size = size;
+        self
     }
 
     /// Create a window with an OpenGL context, and the corresponding event loop.
@@ -48,7 +70,7 @@ impl ContextBuilder {
         let window_builder = glutin::window::WindowBuilder::new()
             .with_title(self.title)
             .with_resizable(true)
-            .with_inner_size(glutin::dpi::LogicalSize::new(1024.0, 768.0));
+            .with_inner_size(self.size);
         let windowed_context = glutin::ContextBuilder::new()
             .with_vsync(true)
             .build_windowed(window_builder, &event_loop)?;
@@ -65,7 +87,6 @@ pub fn run(event_loop: EventLoop<()>, mut context: Context) -> ! {
         context.handle_event(event, control_flow);
     })
 }
-
 
 /// A collection of the various systems of the game engine.
 /// This will be passed to each call into the actual game.
@@ -90,18 +111,23 @@ impl Context {
         }
     }
 
-    pub(crate) fn handle_event(&mut self, event: glutin::event::Event<()>, control_flow: &mut ControlFlow) {
+    pub(crate) fn handle_event(
+        &mut self,
+        event: glutin::event::Event<()>,
+        control_flow: &mut ControlFlow,
+    ) {
         match event {
             Event::NewEvents(_) => {}
-            Event::WindowEvent { window_id: _, event } => {
+            Event::WindowEvent {
+                window_id: _,
+                event,
+            } => {
                 match event {
                     WindowEvent::CloseRequested => {
                         // TODO: let the game handle close event
                         *control_flow = glutin::event_loop::ControlFlow::Exit;
                     }
-                    WindowEvent::Resized(new_size) => {
-                        self.window.windowed_context.resize(new_size)
-                    }
+                    WindowEvent::Resized(new_size) => self.window.windowed_context.resize(new_size),
                     WindowEvent::ScaleFactorChanged { .. } => {
                         // TODO: what to do with changing DPI?
                     }
@@ -109,7 +135,11 @@ impl Context {
                     WindowEvent::ReceivedCharacter(ch) => {
                         self.keyboard.unicode_text.push(ch);
                     }
-                    WindowEvent::KeyboardInput { device_id: _, input, is_synthetic: _ } => {
+                    WindowEvent::KeyboardInput {
+                        device_id: _,
+                        input,
+                        is_synthetic: _,
+                    } => {
                         // TODO: preferibly use scan codes, but how to find those?
                         if let Some(vk) = input.virtual_keycode {
                             if input.state == ElementState::Pressed {
@@ -133,7 +163,7 @@ impl Context {
                         glutin::event::MouseScrollDelta::PixelDelta(_) => {
                             // TODO: is this also needed? my mouse at home only emits LineDelta
                         }
-                    }
+                    },
                     WindowEvent::MouseInput { state, button, .. } => {
                         if state == ElementState::Pressed {
                             self.mouse.pressed_buttons.insert(button);
@@ -144,7 +174,7 @@ impl Context {
                     WindowEvent::Touch(_) => {
                         // TODO: support Touch eventually
                     }
-                    _ => {},
+                    _ => {}
                 }
             }
             Event::DeviceEvent { .. } => {
@@ -167,7 +197,9 @@ impl Context {
             }
             Event::RedrawRequested(_) => {
                 unsafe {
-                    self.graphics.gl.clear_color(100.0 / 255.0, 149.0 / 255.0, 237.0 / 255.0, 1.0);
+                    self.graphics
+                        .gl
+                        .clear_color(100.0 / 255.0, 149.0 / 255.0, 237.0 / 255.0, 1.0);
                     self.graphics.gl.clear(glow::COLOR_BUFFER_BIT);
                 }
                 // TODO: call draw() here

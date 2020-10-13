@@ -1,6 +1,5 @@
 use std::rc::Rc;
 
-
 #[derive(Debug)]
 pub(crate) struct GraphicsContext {
     pub gl: glow::Context,
@@ -13,8 +12,6 @@ impl GraphicsContext {
                 windowed_context.get_proc_address(s) as *const _
             })
         };
-        Self {
-            gl
-        }
+        Self { gl }
     }
 }

@@ -2,7 +2,6 @@ use std::collections::HashSet;
 
 use glutin::event::MouseButton;
 
-
 #[derive(Debug)]
 pub(crate) struct MouseContext {
     pub position: glutin::dpi::PhysicalPosition<f64>,
