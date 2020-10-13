@@ -21,7 +21,7 @@ impl ds2d::Game for HelloGame {
 fn main() {
     stderrlog::new().quiet(false).verbosity(5).init().unwrap();
 
-    let (event_loop, context) = match ds2d::ContextBuilder::new().title("Hello World!").build() {
+    let (event_loop, context) = match ds2d::ContextBuilder::new().debug(true).title("Hello World!").build() {
         Ok(ok) => ok,
         Err(err) => {
             error!("Could not create context: {:?}", err);

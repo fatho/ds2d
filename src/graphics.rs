@@ -1,7 +1,7 @@
 use super::{Context, GameResult};
 use glow::HasContext;
 
-/// A color represented as 32 bit float RGBA value.
+/// A color represented as normalized 32 bit float RGBA value.
 pub struct Color {
     /// red component
     pub r: f32,

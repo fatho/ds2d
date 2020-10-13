@@ -38,6 +38,7 @@ impl From<glutin::ContextError> for InitError {
 pub struct ContextBuilder {
     title: String,
     size: LogicalSize<f64>,
+    debug: bool,
 }
 
 impl Default for ContextBuilder {
@@ -54,6 +55,7 @@ impl ContextBuilder {
                 width: 800.0,
                 height: 600.0,
             },
+            debug: cfg!(debug_assertions),
         }
     }
 
@@ -70,6 +72,13 @@ impl ContextBuilder {
         self
     }
 
+    /// Enable additional debug checks and output.
+    /// Defaults to `cfg!(debug_assertions)`.
+    pub fn debug(mut self, debug: bool) -> Self {
+        self.debug = debug;
+        self
+    }
+
     /// Create a window with an OpenGL context, and the corresponding event loop.
     /// The returned `ds2d::Context` can be used for initializing the Game state
     /// before starting the game loop.
@@ -81,11 +90,16 @@ impl ContextBuilder {
             .with_inner_size(self.size);
         let windowed_context = glutin::ContextBuilder::new()
             .with_vsync(true)
+            .with_gl_debug_flag(self.debug)
             .build_windowed(window_builder, &event_loop)?;
         // The window is dropped in case of an error
         let windowed_context = unsafe { windowed_context.make_current().map_err(|(_, err)| err)? };
+        let mut context = Context::new(windowed_context);
+        if self.debug {
+            context.graphics.init_debug();
+        }
 
-        Ok((event_loop, Context::new(windowed_context)))
+        Ok((event_loop, context))
     }
 }
 
