@@ -40,6 +40,12 @@ pub struct ContextBuilder {
     size: LogicalSize<f64>,
 }
 
+impl Default for ContextBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ContextBuilder {
     pub fn new() -> Self {
         Self {
