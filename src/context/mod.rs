@@ -212,9 +212,8 @@ impl Context {
             }
             Event::RedrawRequested(_) => {
                 // Clear the screen in a hideous magenta so that its clear if the Game forgot to clear it
-                let draw_result =
-                    crate::graphics::clear(self, Color::MAGENTA).and_then(|_| game.draw(self));
-                if let Err(err) = draw_result {
+                crate::graphics::clear(self, Color::MAGENTA);
+                if let Err(err) = game.draw(self) {
                     error!("Game::draw failed: {}", err);
                     *control_flow = ControlFlow::Exit;
                 }

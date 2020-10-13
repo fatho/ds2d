@@ -5,7 +5,8 @@ pub struct HelloGame;
 
 impl ds2d::Game for HelloGame {
     fn draw(&mut self, ctx: &mut ds2d::Context) -> GameResult<()> {
-        ds2d::graphics::clear(ctx, Color::CORNFLOWER_BLUE)
+        ds2d::graphics::clear(ctx, Color::CORNFLOWER_BLUE);
+        Ok(())
     }
 
     fn update(&mut self, _ctx: &mut ds2d::Context) -> GameResult<()> {

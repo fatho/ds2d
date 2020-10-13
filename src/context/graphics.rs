@@ -16,7 +16,8 @@ impl GraphicsContext {
         Self { gl }
     }
 
-    pub fn check_errors(&mut self) -> crate::GameResult<()> {
+    /// Check whether an OpenGL error occurred recently.
+    pub fn _check_errors(&mut self) -> crate::GameResult<()> {
         use crate::GameError;
 
         let mut error = unsafe { self.gl.get_error() };

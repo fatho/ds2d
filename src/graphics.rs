@@ -42,12 +42,11 @@ impl Color {
     }
 }
 
-pub fn clear(ctx: &mut Context, color: Color) -> GameResult<()> {
+pub fn clear(ctx: &mut Context, color: Color) {
     unsafe {
         ctx.graphics
             .gl
             .clear_color(color.r, color.g, color.b, color.a);
         ctx.graphics.gl.clear(glow::COLOR_BUFFER_BIT);
     }
-    ctx.graphics.check_errors()
 }

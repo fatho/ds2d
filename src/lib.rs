@@ -23,9 +23,11 @@ pub type GameResult<T> = Result<T, GameError>;
 /// Implemented by the struct holding the game state.
 pub trait Game {
     /// Called every frame when the game should render its state.
+    /// Returning an error will cause the game to exit.
     fn draw(&mut self, ctx: &mut Context) -> GameResult<()>;
 
     /// Called every frame when the game should update its state.
+    /// Returning an error will cause the game to exit.
     fn update(&mut self, ctx: &mut Context) -> GameResult<()>;
 
     /// Called immediately before the game stops.
