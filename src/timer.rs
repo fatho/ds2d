@@ -17,7 +17,10 @@ pub fn run_fixed_timestep(ctx: &mut Context, updates_per_second: f64, max_update
     if ctx.timer.accumulator >= frame_time {
         let max_time = frame_time * max_updates;
         if ctx.timer.accumulator >= max_time {
-            log::warn!("Simulation running slow, discarding {:.3}s of frame time", (ctx.timer.accumulator - max_time).as_secs_f64());
+            log::warn!(
+                "Simulation running slow, discarding {:.3}s of frame time",
+                (ctx.timer.accumulator - max_time).as_secs_f64()
+            );
             ctx.timer.accumulator = max_time;
         }
         ctx.timer.accumulator -= frame_time;

@@ -1,5 +1,6 @@
 use super::{Context, GameResult};
 use glow::HasContext;
+use glutin::dpi::PhysicalSize;
 
 /// A color represented as normalized 32 bit float RGBA value.
 #[derive(Debug, Copy, Clone)]
@@ -41,6 +42,14 @@ impl Color {
     pub fn from_rgb_u8(r: u8, g: u8, b: u8) -> Self {
         Self::from_rgba_u8(r, g, b, 255)
     }
+}
+
+pub fn screen_size(ctx: &mut Context) -> PhysicalSize<u32> {
+    ctx.graphics.screen_size
+}
+
+pub fn scale_factor(ctx: &mut Context) -> f64 {
+    ctx.graphics.scale_factor
 }
 
 pub fn clear(ctx: &mut Context, color: Color) {

@@ -9,11 +9,10 @@ use std::rc::Rc;
 
 use crate::graphics::Color;
 
-pub mod graphics;
-pub mod keyboard;
-pub mod mouse;
-pub mod timer;
-pub mod window;
+pub(crate) mod graphics;
+pub(crate) mod keyboard;
+pub(crate) mod mouse;
+pub(crate) mod timer;
 
 /// The types of errors that can occur when initializing the context.
 #[derive(Debug)]
@@ -121,7 +120,6 @@ pub struct Context {
     pub(crate) keyboard: keyboard::KeyboardContext,
     pub(crate) mouse: mouse::MouseContext,
     pub(crate) timer: timer::TimerContext,
-    pub(crate) window: window::WindowContext,
     pub(crate) graphics: graphics::GraphicsContext,
 }
 
@@ -132,7 +130,6 @@ impl Context {
             timer: timer::TimerContext::new(),
             mouse: mouse::MouseContext::default(),
             keyboard: keyboard::KeyboardContext::default(),
-            window: window::WindowContext::new(window.clone()),
             graphics: graphics::GraphicsContext::new(window),
         }
     }
@@ -153,9 +150,14 @@ impl Context {
                     WindowEvent::CloseRequested => {
                         *control_flow = ControlFlow::Exit;
                     }
-                    WindowEvent::Resized(new_size) => self.window.windowed_context.resize(new_size),
-                    WindowEvent::ScaleFactorChanged { .. } => {
-                        // TODO: what to do with changing DPI?
+                    WindowEvent::Resized(new_size) => {
+                        self.graphics.windowed_context.resize(new_size);
+                        self.graphics.screen_size = new_size;
+                        log::debug!("Window resized: {:?}", new_size);
+                    },
+                    WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
+                        self.graphics.scale_factor = scale_factor;
+                        log::debug!("Window scale factor changed: {:?}", scale_factor);
                     }
                     WindowEvent::Destroyed => {}
                     WindowEvent::ReceivedCharacter(ch) => {
@@ -222,7 +224,7 @@ impl Context {
                 self.mouse.scroll_y = 0.0;
 
                 // Keep the animation running
-                self.window.windowed_context.window().request_redraw();
+                self.graphics.windowed_context.window().request_redraw();
             }
             Event::RedrawRequested(_) => {
                 // Clear the screen in a hideous magenta so that its clear if the Game forgot to clear it
@@ -231,7 +233,7 @@ impl Context {
                     error!("Game::draw failed: {}", err);
                     *control_flow = ControlFlow::Exit;
                 }
-                self.window.windowed_context.swap_buffers().unwrap();
+                self.graphics.windowed_context.swap_buffers().unwrap();
             }
             Event::RedrawEventsCleared => {
                 *control_flow = ControlFlow::Poll;

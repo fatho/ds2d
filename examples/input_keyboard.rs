@@ -21,9 +21,14 @@ impl ds2d::Game for InputGame {
 
     fn update(&mut self, ctx: &mut ds2d::Context) -> GameResult<()> {
         while ds2d::timer::run_fixed_timestep(ctx, 60.0, 5) {
-            self.color.r = (self.color.r + keyboard::axis_f32(ctx, keyboard::KeyCode::Q, keyboard::KeyCode::W) / 60.0 / 10.0).max(0.0).min(1.0);
-            self.color.g = (self.color.g + keyboard::axis_f32(ctx, keyboard::KeyCode::A, keyboard::KeyCode::S) / 60.0 / 10.0).max(0.0).min(1.0);
-            self.color.b = (self.color.b + keyboard::axis_f32(ctx, keyboard::KeyCode::Z, keyboard::KeyCode::X) / 60.0 / 10.0).max(0.0).min(1.0);
+            // Emulate analog axes with binary keyboard input
+            let red_axis = keyboard::axis_f32(ctx, keyboard::KeyCode::Q, keyboard::KeyCode::W);
+            let green_axis = keyboard::axis_f32(ctx, keyboard::KeyCode::A, keyboard::KeyCode::S);
+            let blue_axis = keyboard::axis_f32(ctx, keyboard::KeyCode::Z, keyboard::KeyCode::X);
+
+            self.color.r = (self.color.r + red_axis / 600.0).max(0.0).min(1.0);
+            self.color.g = (self.color.g + green_axis / 600.0).max(0.0).min(1.0);
+            self.color.b = (self.color.b + blue_axis / 600.0).max(0.0).min(1.0);
         }
         Ok(())
     }
@@ -36,7 +41,11 @@ impl ds2d::Game for InputGame {
 fn main() {
     stderrlog::new().quiet(false).verbosity(5).init().unwrap();
 
-    let (event_loop, context) = match ds2d::ContextBuilder::new().debug(true).title("Hello World!").build() {
+    let (event_loop, context) = match ds2d::ContextBuilder::new()
+        .debug(true)
+        .title("Hello World!")
+        .build()
+    {
         Ok(ok) => ok,
         Err(err) => {
             error!("Could not create context: {:?}", err);

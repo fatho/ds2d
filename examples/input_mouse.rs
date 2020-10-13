@@ -1,15 +1,29 @@
-use ds2d::{graphics::Color, GameResult};
+use ds2d::{graphics, graphics::Color, input::mouse, GameResult};
 use log::error;
 
-pub struct HelloGame;
+pub struct InputGame {
+    color: Color,
+}
 
-impl ds2d::Game for HelloGame {
+impl InputGame {
+    pub fn new() -> Self {
+        Self {
+            color: Color::BLACK,
+        }
+    }
+}
+
+impl ds2d::Game for InputGame {
     fn draw(&mut self, ctx: &mut ds2d::Context) -> GameResult<()> {
-        ds2d::graphics::clear(ctx, Color::CORNFLOWER_BLUE);
+        graphics::clear(ctx, self.color);
         Ok(())
     }
 
-    fn update(&mut self, _ctx: &mut ds2d::Context) -> GameResult<()> {
+    fn update(&mut self, ctx: &mut ds2d::Context) -> GameResult<()> {
+        let pos = mouse::position(ctx);
+        let size = graphics::screen_size(ctx);
+        self.color.r = (pos.x / size.width as f64) as f32;
+        self.color.g = (pos.y / size.height as f64) as f32;
         Ok(())
     }
 
@@ -33,7 +47,7 @@ fn main() {
         }
     };
 
-    let game = HelloGame;
+    let game = InputGame::new();
 
     ds2d::run(event_loop, context, game)
 }

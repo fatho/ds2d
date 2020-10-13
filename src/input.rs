@@ -1,4 +1,3 @@
-
 /// Handle keyboard input
 pub mod keyboard {
     use crate::Context;
@@ -18,8 +17,12 @@ pub mod keyboard {
     /// If both keys are or no key is pressed, 0 is returned.
     pub fn axis(ctx: &mut Context, negative_key: KeyCode, positive_key: KeyCode) -> i32 {
         let mut output = 0;
-        if is_down(ctx, negative_key) { output -= 1 }
-        if is_down(ctx, positive_key) { output += 1 }
+        if is_down(ctx, negative_key) {
+            output -= 1
+        }
+        if is_down(ctx, positive_key) {
+            output += 1
+        }
         output
     }
 
@@ -30,6 +33,25 @@ pub mod keyboard {
 
     /// Return the text that was entered since the last update.
     pub fn text(ctx: &mut Context) -> &str {
-       &ctx.keyboard.unicode_text
+        &ctx.keyboard.unicode_text
+    }
+}
+
+pub mod mouse {
+    use glutin::{dpi::PhysicalPosition, event::MouseButton};
+    use crate::Context;
+
+    type Button = MouseButton;
+
+    pub fn position(ctx: &mut Context) -> PhysicalPosition<f64> {
+        ctx.mouse.position
+    }
+
+    pub fn is_down(ctx: &mut Context, key: Button) -> bool {
+        ctx.mouse.pressed_buttons.contains(&key)
+    }
+
+    pub fn is_up(ctx: &mut Context, key: Button) -> bool {
+        !is_down(ctx, key)
     }
 }

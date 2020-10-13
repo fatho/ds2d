@@ -1,16 +1,21 @@
 use glow::HasContext;
+use glutin::{WindowedContext, dpi::PhysicalSize};
 use std::rc::Rc;
 
 #[derive(Debug)]
 pub(crate) struct GraphicsContext {
+    pub windowed_context: Rc<WindowedContext<glutin::PossiblyCurrent>>,
     pub gl: glow::Context,
+    pub screen_size: PhysicalSize<u32>,
+    pub scale_factor: f64,
     pub can_debug: bool,
 }
 
 impl GraphicsContext {
-    pub fn new(windowed_context: Rc<glutin::WindowedContext<glutin::PossiblyCurrent>>) -> Self {
+    pub fn new(windowed_context: Rc<WindowedContext<glutin::PossiblyCurrent>>) -> Self {
         let gl = unsafe {
-            glow::Context::from_loader_function(|s| {
+            let windowed_context = windowed_context.clone();
+            glow::Context::from_loader_function(move |s| {
                 windowed_context.get_proc_address(s) as *const _
             })
         };
@@ -28,8 +33,10 @@ impl GraphicsContext {
             }
             log::debug!("Found extension: {}", ext);
         }
+        let screen_size = windowed_context.window().inner_size();
+        let scale_factor = windowed_context.window().scale_factor();
 
-        Self { gl, can_debug }
+        Self { windowed_context, gl, screen_size, scale_factor, can_debug }
     }
 
     pub fn init_debug(&mut self) {
