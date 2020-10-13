@@ -4,6 +4,7 @@ pub use context::{run, Context, ContextBuilder};
 // expose the public interface of the various subsystems
 pub mod graphics;
 pub mod input;
+pub mod timer;
 
 #[derive(Debug)]
 pub enum GameError {

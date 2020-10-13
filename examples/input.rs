@@ -20,9 +20,11 @@ impl ds2d::Game for InputGame {
     }
 
     fn update(&mut self, ctx: &mut ds2d::Context) -> GameResult<()> {
-        self.color.r = (self.color.r + keyboard::axis_f32(ctx, keyboard::KeyCode::Q, keyboard::KeyCode::W) * 0.01).max(0.0).min(1.0);
-        self.color.g = (self.color.g + keyboard::axis_f32(ctx, keyboard::KeyCode::A, keyboard::KeyCode::S) * 0.01).max(0.0).min(1.0);
-        self.color.b = (self.color.b + keyboard::axis_f32(ctx, keyboard::KeyCode::Z, keyboard::KeyCode::X) * 0.01).max(0.0).min(1.0);
+        while ds2d::timer::run_fixed_timestep(ctx, 60.0, 5) {
+            self.color.r = (self.color.r + keyboard::axis_f32(ctx, keyboard::KeyCode::Q, keyboard::KeyCode::W) / 60.0 / 10.0).max(0.0).min(1.0);
+            self.color.g = (self.color.g + keyboard::axis_f32(ctx, keyboard::KeyCode::A, keyboard::KeyCode::S) / 60.0 / 10.0).max(0.0).min(1.0);
+            self.color.b = (self.color.b + keyboard::axis_f32(ctx, keyboard::KeyCode::Z, keyboard::KeyCode::X) / 60.0 / 10.0).max(0.0).min(1.0);
+        }
         Ok(())
     }
 
