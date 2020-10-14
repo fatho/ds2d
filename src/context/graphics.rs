@@ -6,20 +6,25 @@ use std::rc::Rc;
 
 use crate::{GameError, GameResult};
 
+use super::InitError;
+
 #[derive(Debug)]
 pub(crate) struct GraphicsContext {
     pub windowed_context: Rc<WindowedContext<glutin::PossiblyCurrent>>,
     pub screen_size: PhysicalSize<u32>,
     pub scale_factor: f64,
     pub can_debug: bool,
+    /// The default shader program used for performing all the 2D rendering.
+    pub program_2d: Program,
 }
 
 impl GraphicsContext {
-    pub fn new(windowed_context: Rc<WindowedContext<glutin::PossiblyCurrent>>) -> Self {
-        {
+    pub fn new(windowed_context: WindowedContext<glutin::PossiblyCurrent>) -> Result<Self, InitError> {
+        let windowed_context = Rc::new(windowed_context);
+        gl::load_with({
             let windowed_context = windowed_context.clone();
-            gl::load_with(move |s| windowed_context.get_proc_address(s) as *const _);
-        }
+            move |s| windowed_context.get_proc_address(s) as *const _
+        });
 
         let version = unsafe { gl::GetString(gl::VERSION) };
         let version = if version == std::ptr::null() {
@@ -53,12 +58,20 @@ impl GraphicsContext {
         let screen_size = windowed_context.window().inner_size();
         let scale_factor = windowed_context.window().scale_factor();
 
-        Self {
+        let program_2d = {
+            let vs = Shader::new(ShaderType::Vertex, DEFAULT_VERTEX_SHADER)?;
+            let fs = Shader::new(ShaderType::Fragment, DEFAULT_FRAGMENT_SHADER)?;
+            Program::new(&[vs, fs])?
+        };
+        use_program(Some(&program_2d))?;
+
+        Ok(Self {
             windowed_context,
             screen_size,
             scale_factor,
             can_debug,
-        }
+            program_2d,
+        })
     }
 
     pub fn init_debug(&mut self) {
@@ -115,33 +128,50 @@ impl GraphicsContext {
             }
         }
     }
+}
 
-    pub fn get_error(&mut self, context: &str) -> GameResult<()> {
-        let err = unsafe { gl::GetError() };
-        let description = match err {
-            gl::NO_ERROR => return Ok(()),
-            gl::INVALID_ENUM => "GL_INVALID_ENUM",
-            gl::INVALID_VALUE => "GL_INVALID_VALUE",
-            gl::INVALID_OPERATION => "GL_INVALID_OPERATION",
-            gl::STACK_OVERFLOW => "GL_STACK_OVERFLOW",
-            gl::STACK_UNDERFLOW => "GL_STACK_UNDERFLOW",
-            gl::OUT_OF_MEMORY => "GL_OUT_OF_MEMORY",
-            gl::INVALID_FRAMEBUFFER_OPERATION => "GL_INVALID_FRAMEBUFFER_OPERATION",
-            // Shouldn't actually occur according to spec
-            _ => "UNKNOWN",
-        };
-        Err(GameError::Graphics(format!("{}: {}", context, description)))
-    }
+pub fn get_error(location: &str) -> GameResult<()> {
+    let err = unsafe { gl::GetError() };
+    let description = match err {
+        gl::NO_ERROR => return Ok(()),
+        gl::INVALID_ENUM => "GL_INVALID_ENUM",
+        gl::INVALID_VALUE => "GL_INVALID_VALUE",
+        gl::INVALID_OPERATION => "GL_INVALID_OPERATION",
+        gl::STACK_OVERFLOW => "GL_STACK_OVERFLOW",
+        gl::STACK_UNDERFLOW => "GL_STACK_UNDERFLOW",
+        gl::OUT_OF_MEMORY => "GL_OUT_OF_MEMORY",
+        gl::INVALID_FRAMEBUFFER_OPERATION => "GL_INVALID_FRAMEBUFFER_OPERATION",
+        // Shouldn't actually occur according to spec
+        _ => "UNKNOWN",
+    };
+    Err(GameError::Graphics(format!("{}: {}", location, description)))
+}
 
+
+/// The supported kinds of shaders.
+#[derive(Debug)]
+pub enum ShaderType {
+    /// A vertex shader, for processing the vertices of a mesh.
+    Vertex,
+    /// A fragment shader, for processing the rasterized pixels of a mesh.
+    Fragment,
+}
+
+#[derive(Debug)]
+pub struct Shader {
+    id: u32,
+}
+
+impl Shader {
     /// Create a shader by compiling source code.
-    pub fn create_shader(&mut self, shader_type: ShaderType, source: &str) -> GameResult<Shader> {
+    pub fn new(shader_type: ShaderType, source: &str) -> GameResult<Shader> {
         let gl_type = match shader_type {
             ShaderType::Vertex => gl::VERTEX_SHADER,
             ShaderType::Fragment => gl::FRAGMENT_SHADER,
         };
         let shader = unsafe { gl::CreateShader(gl_type) };
         if shader == 0 {
-            self.get_error("CreateShader")?;
+            get_error("CreateShader")?;
             return Err(GameError::Graphics("Could not create shader but no error reported".into()));
         }
         log::trace!("CreateShader() = {}", shader);
@@ -150,9 +180,9 @@ impl GraphicsContext {
         unsafe {
             // Load and compile source code
             gl::ShaderSource(shader.id, 1, &(source.as_ptr() as _), &(source.len() as _));
-            self.get_error("ShaderSource")?;
+            get_error("ShaderSource")?;
             gl::CompileShader(shader.id);
-            self.get_error("CompileShader")?;
+            get_error("CompileShader")?;
             // Check result
             let mut status = 0i32;
             gl::GetShaderiv(shader.id, gl::COMPILE_STATUS, &mut status);
@@ -169,12 +199,27 @@ impl GraphicsContext {
 
         Ok(shader)
     }
+}
 
+impl Drop for Shader {
+    fn drop(&mut self) {
+        // TODO: how to make sure this happens in a safe way?
+        log::trace!("DeleteShader({})", self.id);
+        unsafe { gl::DeleteShader(self.id); }
+    }
+}
+
+#[derive(Debug)]
+pub struct Program {
+    id: u32,
+}
+
+impl Program {
     /// Create a program by linking individual shaders.
-    pub fn create_program(&mut self, shaders: &[Shader]) -> GameResult<Program> {
+    pub fn new(shaders: &[Shader]) -> GameResult<Program> {
         let program = unsafe { gl::CreateProgram() };
         if program == 0 {
-            self.get_error("CreateProgram")?;
+            get_error("CreateProgram")?;
             return Err(GameError::Graphics("Could not create program but no error reported".into()));
         }
         log::trace!("CreateProgram() = {}", program);
@@ -184,10 +229,10 @@ impl GraphicsContext {
             // Link all the shaders
             for shader in shaders {
                 gl::AttachShader(program.id, shader.id);
-                self.get_error("AttachShader")?;
+                get_error("AttachShader")?;
             }
             gl::LinkProgram(program.id);
-            self.get_error("LinkProgram")?;
+            get_error("LinkProgram")?;
             // Check result
             let mut status = 0i32;
             gl::GetProgramiv(program.id, gl::LINK_STATUS, &mut status);
@@ -206,33 +251,6 @@ impl GraphicsContext {
     }
 }
 
-/// The supported kinds of shaders.
-#[derive(Debug)]
-pub enum ShaderType {
-    /// A vertex shader, for processing the vertices of a mesh.
-    Vertex,
-    /// A fragment shader, for processing the rasterized pixels of a mesh.
-    Fragment,
-}
-
-#[derive(Debug)]
-pub struct Shader {
-    id: u32,
-}
-
-impl Drop for Shader {
-    fn drop(&mut self) {
-        // TODO: how to make sure this happens in a safe way?
-        log::trace!("DeleteShader({})", self.id);
-        unsafe { gl::DeleteShader(self.id); }
-    }
-}
-
-#[derive(Debug)]
-pub struct Program {
-    id: u32,
-}
-
 impl Drop for Program {
     fn drop(&mut self) {
         // TODO: how to make sure this happens in a safe way?
@@ -240,6 +258,15 @@ impl Drop for Program {
         unsafe { gl::DeleteProgram(self.id); }
     }
 }
+
+/// Make a shader program active, or unset the current shader program.
+pub fn use_program(program: Option<&Program>) -> GameResult<()> {
+    let id = program.map_or(0, |p| p.id);
+    log::trace!("UseProgram({})", program.map_or(0, |p| p.id));
+    unsafe  { gl::UseProgram(id) }
+    get_error("UseProgram")
+}
+
 
 // TODO: implement useful shader
 

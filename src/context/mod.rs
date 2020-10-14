@@ -7,7 +7,7 @@ use glutin::{
 use log::error;
 use std::rc::Rc;
 
-use crate::graphics::Color;
+use crate::{GameError, graphics::Color};
 
 pub(crate) mod graphics;
 pub(crate) mod keyboard;
@@ -17,8 +17,12 @@ pub(crate) mod timer;
 /// The types of errors that can occur when initializing the context.
 #[derive(Debug)]
 pub enum InitError {
+    /// Error while creating the window
     WindowCreation(glutin::CreationError),
+    /// Error while initializing the OpenGL context
     Context(glutin::ContextError),
+    /// Error while initializing the game library
+    Game(GameError),
 }
 
 impl From<glutin::CreationError> for InitError {
@@ -29,6 +33,11 @@ impl From<glutin::CreationError> for InitError {
 impl From<glutin::ContextError> for InitError {
     fn from(err: glutin::ContextError) -> Self {
         InitError::Context(err)
+    }
+}
+impl From<GameError> for InitError {
+    fn from(err: GameError) -> Self {
+        InitError::Game(err)
     }
 }
 
@@ -93,7 +102,7 @@ impl ContextBuilder {
             .build_windowed(window_builder, &event_loop)?;
         // The window is dropped in case of an error
         let windowed_context = unsafe { windowed_context.make_current().map_err(|(_, err)| err)? };
-        let mut context = Context::new(windowed_context);
+        let mut context = Context::new(windowed_context)?;
         if self.debug {
             context.graphics.init_debug();
         }
@@ -124,14 +133,13 @@ pub struct Context {
 }
 
 impl Context {
-    pub(crate) fn new(windowed_context: glutin::WindowedContext<glutin::PossiblyCurrent>) -> Self {
-        let window = Rc::new(windowed_context);
-        Self {
+    pub(crate) fn new(windowed_context: glutin::WindowedContext<glutin::PossiblyCurrent>) -> Result<Self, InitError> {
+        Ok(Self {
             timer: timer::TimerContext::new(),
             mouse: mouse::MouseContext::default(),
             keyboard: keyboard::KeyboardContext::default(),
-            graphics: graphics::GraphicsContext::new(window),
-        }
+            graphics: graphics::GraphicsContext::new(windowed_context)?,
+        })
     }
 
     pub(crate) fn handle_event(
