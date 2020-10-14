@@ -154,7 +154,7 @@ impl Context {
                         self.graphics.windowed_context.resize(new_size);
                         self.graphics.screen_size = new_size;
                         log::debug!("Window resized: {:?}", new_size);
-                    },
+                    }
                     WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
                         self.graphics.scale_factor = scale_factor;
                         log::debug!("Window scale factor changed: {:?}", scale_factor);

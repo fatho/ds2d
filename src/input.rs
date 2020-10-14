@@ -38,8 +38,8 @@ pub mod keyboard {
 }
 
 pub mod mouse {
-    use glutin::{dpi::PhysicalPosition, event::MouseButton};
     use crate::Context;
+    use glutin::{dpi::PhysicalPosition, event::MouseButton};
 
     type Button = MouseButton;
 

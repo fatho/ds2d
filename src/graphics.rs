@@ -1,5 +1,4 @@
 use super::{Context, GameResult};
-use glow::HasContext;
 use glutin::dpi::PhysicalSize;
 
 /// A color represented as normalized 32 bit float RGBA value.
@@ -54,9 +53,7 @@ pub fn scale_factor(ctx: &mut Context) -> f64 {
 
 pub fn clear(ctx: &mut Context, color: Color) {
     unsafe {
-        ctx.graphics
-            .gl
-            .clear_color(color.r, color.g, color.b, color.a);
-        ctx.graphics.gl.clear(glow::COLOR_BUFFER_BIT);
+        gl::ClearColor(color.r, color.g, color.b, color.a);
+        gl::Clear(gl::COLOR_BUFFER_BIT);
     }
 }

@@ -1,11 +1,9 @@
-use glow::HasContext;
-use glutin::{WindowedContext, dpi::PhysicalSize};
+use glutin::{dpi::PhysicalSize, WindowedContext};
 use std::rc::Rc;
 
 #[derive(Debug)]
 pub(crate) struct GraphicsContext {
     pub windowed_context: Rc<WindowedContext<glutin::PossiblyCurrent>>,
-    pub gl: glow::Context,
     pub screen_size: PhysicalSize<u32>,
     pub scale_factor: f64,
     pub can_debug: bool,
@@ -13,65 +11,102 @@ pub(crate) struct GraphicsContext {
 
 impl GraphicsContext {
     pub fn new(windowed_context: Rc<WindowedContext<glutin::PossiblyCurrent>>) -> Self {
-        let gl = unsafe {
+        {
             let windowed_context = windowed_context.clone();
-            glow::Context::from_loader_function(move |s| {
-                windowed_context.get_proc_address(s) as *const _
-            })
+            gl::load_with(move |s| windowed_context.get_proc_address(s) as *const _);
+        }
+
+        let version = unsafe { gl::GetString(gl::VERSION) };
+        let version = if version == std::ptr::null() {
+            std::borrow::Cow::Borrowed("version unavailable")
+        } else {
+            unsafe { std::ffi::CStr::from_ptr(version as *const i8).to_string_lossy() }
         };
 
-        let version = unsafe { gl.get_parameter_string(glow::VERSION) };
-        let shader_version = unsafe { gl.get_parameter_string(glow::SHADING_LANGUAGE_VERSION) };
+        let shader_version = unsafe { gl::GetString(gl::SHADING_LANGUAGE_VERSION) };
+        let shader_version = if shader_version == std::ptr::null() {
+            std::borrow::Cow::Borrowed("version unavailable")
+        } else {
+            unsafe { std::ffi::CStr::from_ptr(shader_version as *const i8).to_string_lossy() }
+        };
+
         log::info!("Using {} (shading language {})", version, shader_version);
 
-        let num_extensions = unsafe { gl.get_parameter_i32(glow::NUM_EXTENSIONS) };
+        let mut num_extensions = 0;
+        unsafe { gl::GetIntegerv(gl::NUM_EXTENSIONS, &mut num_extensions as *mut _) };
         let mut can_debug = false;
         for i in 0..num_extensions {
-            let ext = unsafe { gl.get_parameter_indexed_string(glow::EXTENSIONS, i as u32) };
-            if ext == "GL_KHR_debug" {
-                can_debug = true;
+            let ext = unsafe { gl::GetStringi(gl::EXTENSIONS, i as u32) };
+            if ext != std::ptr::null() {
+                let ext = unsafe { std::ffi::CStr::from_ptr(ext as *const i8).to_string_lossy() };
+                if ext == "GL_KHR_debug" {
+                    can_debug = true;
+                }
+                log::debug!("Found extension {}", ext);
             }
-            log::debug!("Found extension: {}", ext);
         }
         let screen_size = windowed_context.window().inner_size();
         let scale_factor = windowed_context.window().scale_factor();
 
-        Self { windowed_context, gl, screen_size, scale_factor, can_debug }
+        Self {
+            windowed_context,
+            screen_size,
+            scale_factor,
+            can_debug,
+        }
     }
 
     pub fn init_debug(&mut self) {
         if self.can_debug {
             unsafe {
-                self.gl.enable(glow::DEBUG_OUTPUT);
-                self.gl.debug_message_callback(|source, msg_type, msg_id, msg_severity, msg_str| {
+                gl::Enable(gl::DEBUG_OUTPUT);
+
+                use gl::types::{GLchar, GLenum, GLsizei, GLuint};
+                use std::ffi::c_void;
+
+                extern "system" fn callback(
+                    source: GLenum,
+                    gltype: GLenum,
+                    id: GLuint,
+                    severity: GLenum,
+                    length: GLsizei,
+                    message: *const GLchar,
+                    _user: *mut c_void,
+                ) {
                     let source = match source {
-                        glow::DEBUG_SOURCE_API => "api",
-                        glow::DEBUG_SOURCE_WINDOW_SYSTEM => "window",
-                        glow::DEBUG_SOURCE_SHADER_COMPILER => "shader",
-                        glow::DEBUG_SOURCE_THIRD_PARTY => "thirdparty",
-                        glow::DEBUG_SOURCE_APPLICATION => "user",
+                        gl::DEBUG_SOURCE_API => "api",
+                        gl::DEBUG_SOURCE_WINDOW_SYSTEM => "window",
+                        gl::DEBUG_SOURCE_SHADER_COMPILER => "shader",
+                        gl::DEBUG_SOURCE_THIRD_PARTY => "thirdparty",
+                        gl::DEBUG_SOURCE_APPLICATION => "user",
                         _ => "other",
                     };
-                    let msg_type = match msg_type {
-                        glow::DEBUG_TYPE_ERROR => "error",
-                        glow::DEBUG_TYPE_DEPRECATED_BEHAVIOR => "deprecated",
-                        glow::DEBUG_TYPE_UNDEFINED_BEHAVIOR => "undefined behavior",
-                        glow::DEBUG_TYPE_PORTABILITY => "portability",
-                        glow::DEBUG_TYPE_PERFORMANCE => "performance",
-                        glow::DEBUG_TYPE_MARKER => "marker",
-                        glow::DEBUG_TYPE_PUSH_GROUP => "push group",
-                        glow::DEBUG_TYPE_POP_GROUP => "pop group",
+                    let msg_type = match gltype {
+                        gl::DEBUG_TYPE_ERROR => "error",
+                        gl::DEBUG_TYPE_DEPRECATED_BEHAVIOR => "deprecated",
+                        gl::DEBUG_TYPE_UNDEFINED_BEHAVIOR => "undefined behavior",
+                        gl::DEBUG_TYPE_PORTABILITY => "portability",
+                        gl::DEBUG_TYPE_PERFORMANCE => "performance",
+                        gl::DEBUG_TYPE_MARKER => "marker",
+                        gl::DEBUG_TYPE_PUSH_GROUP => "push group",
+                        gl::DEBUG_TYPE_POP_GROUP => "pop group",
                         _ => "other",
                     };
-                    let severity = match msg_severity {
-                        glow::DEBUG_SEVERITY_HIGH => log::Level::Error,
-                        glow::DEBUG_SEVERITY_MEDIUM => log::Level::Warn,
-                        glow::DEBUG_SEVERITY_LOW => log::Level::Info,
-                        glow::DEBUG_SEVERITY_NOTIFICATION => log::Level::Debug,
+                    let severity = match severity {
+                        gl::DEBUG_SEVERITY_HIGH => log::Level::Error,
+                        gl::DEBUG_SEVERITY_MEDIUM => log::Level::Warn,
+                        gl::DEBUG_SEVERITY_LOW => log::Level::Info,
+                        gl::DEBUG_SEVERITY_NOTIFICATION => log::Level::Debug,
                         _ => log::Level::Info,
                     };
-                    log::log!(target: "opengl", severity, "{} {} {}: {}", source, msg_type, msg_id, msg_str);
-                });
+                    let msgbytes: &[u8] = unsafe {
+                        std::slice::from_raw_parts(message as *const u8, length as usize)
+                    };
+                    let msg_str = String::from_utf8_lossy(msgbytes);
+                    log::log!(target: "opengl", severity, "{} {} {}: {}", source, msg_type, id, msg_str);
+                }
+
+                gl::DebugMessageCallback(Some(callback), std::ptr::null());
             }
         }
     }
@@ -80,21 +115,21 @@ impl GraphicsContext {
     pub fn _check_errors(&mut self) -> crate::GameResult<()> {
         use crate::GameError;
 
-        let mut error = unsafe { self.gl.get_error() };
+        let mut error = unsafe { gl::GetError() };
         let first_error = error;
         // Just in case there are more errors queued up, try and drain the queue
-        while error != glow::NO_ERROR {
-            error = unsafe { self.gl.get_error() };
+        while error != gl::NO_ERROR {
+            error = unsafe { gl::GetError() };
         }
         match first_error {
-            glow::NO_ERROR => Ok(()),
-            glow::INVALID_ENUM => Err(GameError::Graphics("GL_INVALID_ENUM".into())),
-            glow::INVALID_VALUE => Err(GameError::Graphics("GL_INVALID_VALUE".into())),
-            glow::INVALID_OPERATION => Err(GameError::Graphics("GL_INVALID_OPERATION".into())),
-            glow::STACK_OVERFLOW => Err(GameError::Graphics("GL_STACK_OVERFLOW".into())),
-            glow::STACK_UNDERFLOW => Err(GameError::Graphics("GL_STACK_UNDERFLOW".into())),
-            glow::OUT_OF_MEMORY => Err(GameError::Graphics("GL_OUT_OF_MEMORY".into())),
-            glow::INVALID_FRAMEBUFFER_OPERATION => Err(GameError::Graphics(
+            gl::NO_ERROR => Ok(()),
+            gl::INVALID_ENUM => Err(GameError::Graphics("GL_INVALID_ENUM".into())),
+            gl::INVALID_VALUE => Err(GameError::Graphics("GL_INVALID_VALUE".into())),
+            gl::INVALID_OPERATION => Err(GameError::Graphics("GL_INVALID_OPERATION".into())),
+            gl::STACK_OVERFLOW => Err(GameError::Graphics("GL_STACK_OVERFLOW".into())),
+            gl::STACK_UNDERFLOW => Err(GameError::Graphics("GL_STACK_UNDERFLOW".into())),
+            gl::OUT_OF_MEMORY => Err(GameError::Graphics("GL_OUT_OF_MEMORY".into())),
+            gl::INVALID_FRAMEBUFFER_OPERATION => Err(GameError::Graphics(
                 "GL_INVALID_FRAMEBUFFER_OPERATION".into(),
             )),
             _ => Err(GameError::Graphics(format!(
@@ -103,4 +138,26 @@ impl GraphicsContext {
             ))),
         }
     }
+
+    // pub fn create_shader(&mut self, shader_type: ShaderType) -> ShaderHandle {
+    //     let gl_type = match shader_type {
+    //         ShaderType::Vertex => gl::VERTEX_SHADER,
+    //         ShaderType::Fragment => gl::FRAGMENT_SHADER,
+    //     };
+    //     //gl::create_shader(gl_type)
+    // }
 }
+
+/// The supported kinds of shaders.
+pub enum ShaderType {
+    /// A vertex shader, for processing the vertices of a mesh.
+    Vertex,
+    /// A fragment shader, for processing the rasterized pixels of a mesh.
+    Fragment,
+}
+
+pub struct ShaderHandle {
+    inner: ShaderHandleImpl,
+}
+
+struct ShaderHandleImpl {}
