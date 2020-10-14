@@ -51,7 +51,7 @@ pub fn scale_factor(ctx: &mut Context) -> f64 {
     ctx.graphics.scale_factor
 }
 
-pub fn clear(ctx: &mut Context, color: Color) {
+pub fn clear(_ctx: &mut Context, color: Color) {
     unsafe {
         gl::ClearColor(color.r, color.g, color.b, color.a);
         gl::Clear(gl::COLOR_BUFFER_BIT);
