@@ -301,12 +301,12 @@ impl Buffer {
         Ok(Buffer { id })
     }
 
-    pub fn bind(target: BufferTarget, buffer: &Buffer) -> GameResult<()> {
-        unsafe { CheckGl!(gl::BindBuffer(target.to_gl(), buffer.id)) }
+    pub fn bind(target: GLenum, buffer: &Buffer) -> GameResult<()> {
+        unsafe { CheckGl!(gl::BindBuffer(target, buffer.id)) }
     }
 
-    pub fn unbind(target: BufferTarget) -> GameResult<()> {
-        unsafe { CheckGl!(gl::BindBuffer(target.to_gl(), 0)) }
+    pub fn unbind(target: GLenum) -> GameResult<()> {
+        unsafe { CheckGl!(gl::BindBuffer(target, 0)) }
     }
 
     /// Create the buffer data storage and upload the given array.
@@ -314,12 +314,12 @@ impl Buffer {
     /// # Safety
     ///
     /// Highly unsafe. Make sure that `T` is a `repr(C)` type.
-    pub unsafe fn data<T>(target: BufferTarget, data: &[T], usage: BufferUsage) -> GameResult<()> {
+    pub unsafe fn data<T>(target: GLenum, data: &[T], usage: GLenum) -> GameResult<()> {
         let size = std::mem::size_of_val(data);
         if size > std::isize::MAX as usize {
             return Err(GameError::Graphics("Buffer too large".to_string()))
         }
-        CheckGl!(gl::BufferData(target.to_gl(), size as isize, data.as_ptr() as *const _, usage.to_gl()))
+        CheckGl!(gl::BufferData(target, size as isize, data.as_ptr() as *const _, usage))
     }
 }
 
@@ -331,45 +331,6 @@ impl Drop for Buffer {
         }
     }
 }
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum BufferTarget {
-    Vertex,
-}
-
-impl BufferTarget {
-    pub fn to_gl(self) -> GLenum {
-        match self {
-            BufferTarget::Vertex => gl::ARRAY_BUFFER,
-        }
-    }
-}
-
-/// A hint to the GL implementation as to how a buffer object's data store
-/// will be accessed. This enables the GL implementation to make more
-/// intelligent decisions that may significantly impact buffer object
-/// performance. It does not, however, constrain the actual usage of the
-/// data store
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum BufferUsage {
-    /// The data store contents will be modified once and used at most a few times.
-    StreamDraw,
-    /// The data store contents will be modified once and used many times.
-    StaticDraw,
-    /// The data store contents will be modified repeatedly and used many times.
-    DynamicDraw,
-}
-
-impl BufferUsage {
-    pub fn to_gl(self) -> GLenum {
-        match self {
-            BufferUsage::StreamDraw => gl::STREAM_DRAW,
-            BufferUsage::StaticDraw => gl::STATIC_DRAW,
-            BufferUsage::DynamicDraw => gl::DYNAMIC_DRAW,
-        }
-    }
-}
-
 
 
 #[derive(Debug)]
@@ -393,10 +354,6 @@ impl VertexArray {
 
     pub fn unbind() -> GameResult<()> {
         unsafe { CheckGl!(gl::BindVertexArray(0)) }
-    }
-
-    pub fn id(&self) -> u32 {
-        self.id
     }
 }
 

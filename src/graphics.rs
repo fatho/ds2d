@@ -1,4 +1,4 @@
-use crate::context::graphics::{Buffer, BufferTarget, BufferUsage, Program, VertexArray};
+use crate::context::graphics::{Buffer, Program, VertexArray};
 
 use super::{Context, GameResult};
 use glutin::dpi::PhysicalSize;
@@ -12,9 +12,14 @@ pub mod primitives;
 pub struct Mesh {
     program: Program,
     #[allow(unused)]
-    vertices: Buffer,
+    /// Vertex buffer object
+    vbo: Buffer,
+    #[allow(unused)]
+    /// Elements buffer object
+    ebo: Buffer,
     vao: VertexArray,
-    num_vertices: i32,
+
+    num_elements: i32,
 }
 
 impl Mesh {
@@ -35,33 +40,45 @@ impl Mesh {
     }";
 
 
-    pub fn new(_ctx: &mut Context, points: &[cgmath::Vector2<f32>]) -> GameResult<Mesh> {
-        if points.len() > std::i32::MAX as usize {
-            return Err(crate::GameError::Graphics("Too many points".into()))
+    pub fn new(_ctx: &mut Context, vertices: &[cgmath::Vector2<f32>], indices: &[u32]) -> GameResult<Mesh> {
+        if vertices.len() > std::u32::MAX as usize {
+            return Err(crate::GameError::Graphics("Too many vertices".into()))
+        }
+        if indices.len() > std::i32::MAX as usize {
+            return Err(crate::GameError::Graphics("Too many indices".into()))
         }
 
         // TODO: cache/share programs across instances
         let program = Program::from_source(Self::VERTEX_SHADER, Self::FRAGMENT_SHADER)?;
-        let vertices = Buffer::new()?;
+        let vbo = Buffer::new()?;
+        let ebo = Buffer::new()?;
         let vao = VertexArray::new()?;
 
-        Buffer::bind(BufferTarget::Vertex, &vertices)?;
         VertexArray::bind(&vao)?;
+        Buffer::bind(gl::ARRAY_BUFFER, &vbo)?;
+        // NOTE: the ELEMENT_ARRAY_BUFFER binding point is a property of the VAO
+        // Unbinding the VAO unbinds the ELEMENT_ARRAY_BUFFER, and without a bound VAO,
+        // the ELEMENT_ARRAY_BUFFER cannot be bound.
+        Buffer::bind(gl::ELEMENT_ARRAY_BUFFER, &ebo)?;
         unsafe {
             // Safe because cgmath::Vector2 is repr(C)
-            Buffer::data(BufferTarget::Vertex, points, BufferUsage::StaticDraw)?;
+            Buffer::data(gl::ARRAY_BUFFER, vertices, gl::STATIC_DRAW)?;
+            Buffer::data(gl::ELEMENT_ARRAY_BUFFER, indices, gl::STATIC_DRAW)?;
             // Safe because it corresponds to the layout of our buffer above
             gl::VertexAttribPointer(0, 2, gl::FLOAT, gl::FALSE, std::mem::size_of::<cgmath::Vector2<f32>>() as i32, 0 as _);
             gl::EnableVertexAttribArray(0);
         }
-        Buffer::unbind(BufferTarget::Vertex)?;
+        // NOTE: The ARRAY_BUFFER has been remembered by the VAO as part of the
+        // call to glVertexAttribPointer.
+        Buffer::unbind(gl::ARRAY_BUFFER)?;
         VertexArray::unbind()?;
 
         Ok(Mesh {
             program,
-            vertices,
+            vbo,
+            ebo,
             vao,
-            num_vertices: points.len() as i32,
+            num_elements: indices.len() as i32,
         })
     }
 }
@@ -70,8 +87,9 @@ impl Drawable for Mesh {
     fn draw(&self, _ctx: &mut Context) -> GameResult<()> {
         self.program.bind()?;
         self.vao.bind()?;
-        unsafe { gl::DrawArrays(gl::TRIANGLES, 0, self.num_vertices as i32); }
+        unsafe { gl::DrawElements(gl::TRIANGLES, self.num_elements, gl::UNSIGNED_INT, 0 as _); }
         VertexArray::unbind()?;
+        Program::unbind()?;
         Ok(())
     }
 }

@@ -9,9 +9,10 @@ impl HelloGame {
     pub fn new(ctx: &mut Context) -> GameResult<HelloGame> {
         let tri = graphics::Mesh::new(ctx, &[
             cgmath::Vector2::new(0.0, 0.5),
-            cgmath::Vector2::new(-0.5, -0.5),
-            cgmath::Vector2::new(0.5, -0.5),
-        ])?;
+            cgmath::Vector2::new(-0.5, 0.0),
+            cgmath::Vector2::new(0.5, 0.0),
+            cgmath::Vector2::new(0.0, -0.5),
+        ], &[0, 1, 2, 1, 2, 3])?;
         Ok(Self {
             tri
         })
