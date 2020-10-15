@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use crate::context::graphics::{Buffer, BufferTarget, BufferUsage, Program};
+use crate::context::graphics::{Buffer, BufferTarget, BufferUsage, Program, VertexArray};
 
 use super::{Context, GameResult};
 use glutin::dpi::PhysicalSize;
@@ -14,6 +14,7 @@ pub mod primitives;
 pub struct Mesh {
     program: Rc<Program>,
     vertices: Rc<Buffer>,
+    vao: Rc<VertexArray>,
 }
 
 impl Mesh {
@@ -38,14 +39,22 @@ impl Mesh {
         // TODO: cache/share programs across instances
         let program = Rc::new(Program::from_source(Self::VERTEX_SHADER, Self::FRAGMENT_SHADER)?);
         let vertices = Rc::new(Buffer::new()?);
-        ctx.graphics.state.with_buffer(BufferTarget::Vertex, vertices.clone(), || {
+        let vao = Rc::new(VertexArray::new()?);
+
+        ctx.graphics.state.with_buffer(BufferTarget::Vertex, vertices.clone(), |state| {
             // Safe because cgmath::Vector2 is repr(C)
-            unsafe { Buffer::data(BufferTarget::Vertex, points, BufferUsage::StaticDraw) }
+            unsafe { Buffer::data(BufferTarget::Vertex, points, BufferUsage::StaticDraw)?; }
+
+            state.with_vao(vao.clone(), |_| {
+                // TODO: set up the VAO
+                Ok(())
+            })
         })?;
 
         Ok(Mesh {
             program,
             vertices,
+            vao,
         })
     }
 }

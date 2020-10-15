@@ -175,22 +175,52 @@ pub struct GlState {
     /// The currently active program (as tracked by this state)
     pub program: Option<Rc<Program>>,
     pub vertex_buffer: Option<Rc<Buffer>>,
+    pub vertex_array: Option<Rc<VertexArray>>,
 }
 
 impl GlState {
-    pub fn with_buffer<R, F: FnOnce() -> GameResult<R>>(&mut self, target: BufferTarget, buffer: Rc<Buffer>, callback: F) -> GameResult<R> {
-        let prev = match target {
-            BufferTarget::Vertex => self.vertex_buffer.clone(),
-        };
-        Buffer::bind(target, Some(&buffer))?;
-        self.vertex_buffer = Some(buffer);
+    fn buffer_binding(&mut self, target: BufferTarget) -> &mut Option<Rc<Buffer>> {
+        match target {
+            BufferTarget::Vertex => &mut self.vertex_buffer,
+        }
+    }
 
-        let result = callback();
+    pub fn with_buffer<R, F: FnOnce(&mut GlState) -> GameResult<R>>(&mut self, target: BufferTarget, buffer: Rc<Buffer>, callback: F) -> GameResult<R> {
+        let prev = self.buffer_binding(target).clone();
+        Buffer::bind(target, Some(&buffer))?;
+        *self.buffer_binding(target) = Some(buffer);
+
+        let result = callback(self);
 
         Buffer::bind(target, prev.as_deref())?;
-        self.vertex_buffer = prev;
+        *self.buffer_binding(target) = prev;
 
         result
+    }
+
+    pub fn with_vao<R, F: FnOnce(&mut GlState) -> GameResult<R>>(&mut self, vertex_array: Rc<VertexArray>, callback: F) -> GameResult<R> {
+        let prev = self.vertex_array.clone();
+        VertexArray::bind(Some(&vertex_array))?;
+        self.vertex_array = Some(vertex_array);
+
+        let result = callback(self);
+
+        VertexArray::bind(prev.as_deref())?;
+        self.vertex_array = prev;
+
+        result
+    }
+
+    /// Unbind all the tracked bindings to allow unused state to be cleaned up.
+    /// Can be called between frames.
+    pub fn unbind_all(&mut self) -> GameResult<()> {
+        VertexArray::bind(None)?;
+        self.vertex_array = None;
+        Buffer::bind(BufferTarget::Vertex, None)?;
+        self.vertex_buffer = None;
+        Program::bind(None)?;
+        self.program = None;
+        Ok(())
     }
 }
 
@@ -290,6 +320,11 @@ impl Program {
         let fs = Shader::new(ShaderType::Fragment, fragment_shader)?;
         Program::new(&[vs, fs])
     }
+
+    fn bind(program: Option<&Program>) -> GameResult<()> {
+        let id = program.map_or(0, |p| p.id);
+        unsafe { CheckGl!(gl::UseProgram(id)) }
+    }
 }
 
 impl Drop for Program {
@@ -315,7 +350,7 @@ impl Buffer {
         Ok(Buffer { id })
     }
 
-    pub fn bind(target: BufferTarget, buffer: Option<&Buffer>) -> GameResult<()> {
+    fn bind(target: BufferTarget, buffer: Option<&Buffer>) -> GameResult<()> {
         let id = buffer.map_or(0, |b| b.id);
         unsafe { CheckGl!(gl::BindBuffer(target.to_gl(), id)) }
     }
@@ -377,6 +412,38 @@ impl BufferUsage {
             BufferUsage::StreamDraw => gl::STREAM_DRAW,
             BufferUsage::StaticDraw => gl::STATIC_DRAW,
             BufferUsage::DynamicDraw => gl::DYNAMIC_DRAW,
+        }
+    }
+}
+
+
+
+#[derive(Debug)]
+pub struct VertexArray {
+    id: u32,
+}
+
+impl VertexArray {
+    pub fn new() -> GameResult<VertexArray> {
+        let mut id = 0;
+        unsafe {
+            CheckGl!(gl::GenVertexArrays(1, &mut id))?;
+            log::trace!("GenVertexArrays() = {}", id);
+        }
+        Ok(VertexArray { id })
+    }
+
+    fn bind(array: Option<&VertexArray>) -> GameResult<()> {
+        let id = array.map_or(0, |b| b.id);
+        unsafe { CheckGl!(gl::BindVertexArray(id)) }
+    }
+}
+
+impl Drop for VertexArray {
+    fn drop(&mut self) {
+        log::trace!("DeleteVertexArrays() = {}", self.id);
+        unsafe {
+            gl::DeleteVertexArrays(1, &self.id);
         }
     }
 }

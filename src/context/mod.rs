@@ -244,6 +244,10 @@ impl Context {
                 self.graphics.windowed_context.swap_buffers().unwrap();
             }
             Event::RedrawEventsCleared => {
+                // Ensure prompt release of OpenGL resources
+                if let Err(err) = self.graphics.state.unbind_all() {
+                    log::error!("Failed to unbind OpenGL state: {}", err);
+                }
                 *control_flow = ControlFlow::Poll;
             }
             Event::LoopDestroyed => {
