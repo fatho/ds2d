@@ -12,9 +12,10 @@ pub mod primitives;
 
 
 pub struct Mesh {
-    program: Rc<Program>,
-    vertices: Rc<Buffer>,
-    vao: Rc<VertexArray>,
+    program: Program,
+    vertices: Buffer,
+    vao: VertexArray,
+    num_vertices: i32,
 }
 
 impl Mesh {
@@ -35,28 +36,48 @@ impl Mesh {
     }";
 
 
-    pub fn new(ctx: &mut Context, points: &[cgmath::Vector2<f64>]) -> GameResult<Mesh> {
+    pub fn new(_ctx: &mut Context, points: &[cgmath::Vector2<f32>]) -> GameResult<Mesh> {
+        if points.len() > std::i32::MAX as usize {
+            return Err(crate::GameError::Graphics("Too many points".into()))
+        }
+
         // TODO: cache/share programs across instances
-        let program = Rc::new(Program::from_source(Self::VERTEX_SHADER, Self::FRAGMENT_SHADER)?);
-        let vertices = Rc::new(Buffer::new()?);
-        let vao = Rc::new(VertexArray::new()?);
+        let program = Program::from_source(Self::VERTEX_SHADER, Self::FRAGMENT_SHADER)?;
+        let vertices = Buffer::new()?;
+        let vao = VertexArray::new()?;
 
-        ctx.graphics.state.with_buffer(BufferTarget::Vertex, vertices.clone(), |state| {
+        Buffer::bind(BufferTarget::Vertex, Some(&vertices))?;
+        VertexArray::bind(Some(&vao))?;
+        unsafe {
             // Safe because cgmath::Vector2 is repr(C)
-            unsafe { Buffer::data(BufferTarget::Vertex, points, BufferUsage::StaticDraw)?; }
-
-            state.with_vao(vao.clone(), |_| {
-                // TODO: set up the VAO
-                Ok(())
-            })
-        })?;
+            Buffer::data(BufferTarget::Vertex, points, BufferUsage::StaticDraw)?;
+            // Safe because it corresponds to the layout of our buffer above
+            gl::VertexAttribPointer(0, 2, gl::FLOAT, gl::FALSE, std::mem::size_of::<cgmath::Vector2<f32>>() as i32, 0 as _);
+            gl::EnableVertexAttribArray(0);
+        }
+        Buffer::bind(BufferTarget::Vertex, None)?;
+        VertexArray::bind(None)?;
 
         Ok(Mesh {
             program,
             vertices,
             vao,
+            num_vertices: points.len() as i32,
         })
     }
+}
+
+impl Drawable for Mesh {
+    fn draw(&self) -> GameResult<()> {
+        Program::bind(Some(&self.program))?;
+        VertexArray::bind(Some(&self.vao))?;
+        unsafe { gl::DrawArrays(gl::TRIANGLES, 0, self.num_vertices as i32); }
+        Ok(())
+    }
+}
+
+pub trait Drawable {
+    fn draw(&self) -> GameResult<()>;
 }
 
 

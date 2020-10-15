@@ -15,7 +15,6 @@ pub(crate) struct GraphicsContext {
     pub screen_size: PhysicalSize<u32>,
     pub scale_factor: f64,
     pub can_debug: bool,
-    pub state: GlState,
 }
 
 impl GraphicsContext {
@@ -63,7 +62,6 @@ impl GraphicsContext {
             screen_size,
             scale_factor,
             can_debug,
-            state: GlState::default(),
         })
     }
 
@@ -121,6 +119,12 @@ impl GraphicsContext {
             }
         }
     }
+
+    pub fn resize(&mut self, new_size: PhysicalSize<u32>) {
+        self.windowed_context.resize(new_size);
+        unsafe { gl::Viewport(0, 0, new_size.width as i32, new_size.height as i32) };
+        self.screen_size = new_size;
+    }
 }
 
 pub fn get_error(file: &str, line: u32, column: u32, expression: &str) -> GameResult<()> {
@@ -166,62 +170,6 @@ macro_rules! CheckGlNonZero {
             }
         }
     };
-}
-
-/// OpenGL state tracking, to prevent objects being destroyed while they are still in use.
-/// Also allows avoiding redundant rebinds.
-#[derive(Debug, Default)]
-pub struct GlState {
-    /// The currently active program (as tracked by this state)
-    pub program: Option<Rc<Program>>,
-    pub vertex_buffer: Option<Rc<Buffer>>,
-    pub vertex_array: Option<Rc<VertexArray>>,
-}
-
-impl GlState {
-    fn buffer_binding(&mut self, target: BufferTarget) -> &mut Option<Rc<Buffer>> {
-        match target {
-            BufferTarget::Vertex => &mut self.vertex_buffer,
-        }
-    }
-
-    pub fn with_buffer<R, F: FnOnce(&mut GlState) -> GameResult<R>>(&mut self, target: BufferTarget, buffer: Rc<Buffer>, callback: F) -> GameResult<R> {
-        let prev = self.buffer_binding(target).clone();
-        Buffer::bind(target, Some(&buffer))?;
-        *self.buffer_binding(target) = Some(buffer);
-
-        let result = callback(self);
-
-        Buffer::bind(target, prev.as_deref())?;
-        *self.buffer_binding(target) = prev;
-
-        result
-    }
-
-    pub fn with_vao<R, F: FnOnce(&mut GlState) -> GameResult<R>>(&mut self, vertex_array: Rc<VertexArray>, callback: F) -> GameResult<R> {
-        let prev = self.vertex_array.clone();
-        VertexArray::bind(Some(&vertex_array))?;
-        self.vertex_array = Some(vertex_array);
-
-        let result = callback(self);
-
-        VertexArray::bind(prev.as_deref())?;
-        self.vertex_array = prev;
-
-        result
-    }
-
-    /// Unbind all the tracked bindings to allow unused state to be cleaned up.
-    /// Can be called between frames.
-    pub fn unbind_all(&mut self) -> GameResult<()> {
-        VertexArray::bind(None)?;
-        self.vertex_array = None;
-        Buffer::bind(BufferTarget::Vertex, None)?;
-        self.vertex_buffer = None;
-        Program::bind(None)?;
-        self.program = None;
-        Ok(())
-    }
 }
 
 /// The supported kinds of shaders.
@@ -321,7 +269,7 @@ impl Program {
         Program::new(&[vs, fs])
     }
 
-    fn bind(program: Option<&Program>) -> GameResult<()> {
+    pub fn bind(program: Option<&Program>) -> GameResult<()> {
         let id = program.map_or(0, |p| p.id);
         unsafe { CheckGl!(gl::UseProgram(id)) }
     }
@@ -350,7 +298,7 @@ impl Buffer {
         Ok(Buffer { id })
     }
 
-    fn bind(target: BufferTarget, buffer: Option<&Buffer>) -> GameResult<()> {
+    pub fn bind(target: BufferTarget, buffer: Option<&Buffer>) -> GameResult<()> {
         let id = buffer.map_or(0, |b| b.id);
         unsafe { CheckGl!(gl::BindBuffer(target.to_gl(), id)) }
     }
@@ -433,9 +381,13 @@ impl VertexArray {
         Ok(VertexArray { id })
     }
 
-    fn bind(array: Option<&VertexArray>) -> GameResult<()> {
+    pub fn bind(array: Option<&VertexArray>) -> GameResult<()> {
         let id = array.map_or(0, |b| b.id);
         unsafe { CheckGl!(gl::BindVertexArray(id)) }
+    }
+
+    pub fn id(&self) -> u32 {
+        self.id
     }
 }
 

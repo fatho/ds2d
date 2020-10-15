@@ -159,9 +159,8 @@ impl Context {
                         *control_flow = ControlFlow::Exit;
                     }
                     WindowEvent::Resized(new_size) => {
-                        self.graphics.windowed_context.resize(new_size);
-                        self.graphics.screen_size = new_size;
-                        log::debug!("Window resized: {:?}", new_size);
+                        self.graphics.resize(new_size);
+                        log::debug!("Window resized: {:?} ({}x)", new_size, self.graphics.scale_factor);
                     }
                     WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
                         self.graphics.scale_factor = scale_factor;
@@ -244,10 +243,6 @@ impl Context {
                 self.graphics.windowed_context.swap_buffers().unwrap();
             }
             Event::RedrawEventsCleared => {
-                // Ensure prompt release of OpenGL resources
-                if let Err(err) = self.graphics.state.unbind_all() {
-                    log::error!("Failed to unbind OpenGL state: {}", err);
-                }
                 *control_flow = ControlFlow::Poll;
             }
             Event::LoopDestroyed => {
