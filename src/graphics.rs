@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use crate::context::graphics::{Buffer, BufferTarget, BufferUsage, Program, VertexArray};
 
 use super::{Context, GameResult};
@@ -13,6 +11,7 @@ pub mod primitives;
 
 pub struct Mesh {
     program: Program,
+    #[allow(unused)]
     vertices: Buffer,
     vao: VertexArray,
     num_vertices: i32,
@@ -46,8 +45,8 @@ impl Mesh {
         let vertices = Buffer::new()?;
         let vao = VertexArray::new()?;
 
-        Buffer::bind(BufferTarget::Vertex, Some(&vertices))?;
-        VertexArray::bind(Some(&vao))?;
+        Buffer::bind(BufferTarget::Vertex, &vertices)?;
+        VertexArray::bind(&vao)?;
         unsafe {
             // Safe because cgmath::Vector2 is repr(C)
             Buffer::data(BufferTarget::Vertex, points, BufferUsage::StaticDraw)?;
@@ -55,8 +54,8 @@ impl Mesh {
             gl::VertexAttribPointer(0, 2, gl::FLOAT, gl::FALSE, std::mem::size_of::<cgmath::Vector2<f32>>() as i32, 0 as _);
             gl::EnableVertexAttribArray(0);
         }
-        Buffer::bind(BufferTarget::Vertex, None)?;
-        VertexArray::bind(None)?;
+        Buffer::unbind(BufferTarget::Vertex)?;
+        VertexArray::unbind()?;
 
         Ok(Mesh {
             program,
@@ -68,18 +67,22 @@ impl Mesh {
 }
 
 impl Drawable for Mesh {
-    fn draw(&self) -> GameResult<()> {
-        Program::bind(Some(&self.program))?;
-        VertexArray::bind(Some(&self.vao))?;
+    fn draw(&self, _ctx: &mut Context) -> GameResult<()> {
+        self.program.bind()?;
+        self.vao.bind()?;
         unsafe { gl::DrawArrays(gl::TRIANGLES, 0, self.num_vertices as i32); }
+        VertexArray::unbind()?;
         Ok(())
     }
 }
 
 pub trait Drawable {
-    fn draw(&self) -> GameResult<()>;
+    fn draw(&self, ctx: &mut Context) -> GameResult<()>;
 }
 
+pub fn draw<T: Drawable>(ctx: &mut Context, drawable: &T) -> GameResult<()> {
+    drawable.draw(ctx)
+}
 
 pub fn screen_size(ctx: &mut Context) -> PhysicalSize<u32> {
     ctx.graphics.screen_size

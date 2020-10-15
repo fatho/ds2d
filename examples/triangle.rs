@@ -1,4 +1,4 @@
-use ds2d::{Context, GameResult, graphics::{self, Color, Drawable}};
+use ds2d::{Context, GameResult, graphics::{self, Color}};
 use log::error;
 
 pub struct HelloGame {
@@ -20,10 +20,8 @@ impl HelloGame {
 
 impl ds2d::Game for HelloGame {
     fn draw(&mut self, ctx: &mut ds2d::Context) -> GameResult<()> {
-        ds2d::graphics::clear(ctx, Color::CORNFLOWER_BLUE);
-        // TODO: graphics::draw(&self.tri, ...) would be more consistent
-        // Or: self.tri.draw(&mut ctx)
-        self.tri.draw()?;
+        graphics::clear(ctx, Color::CORNFLOWER_BLUE);
+        graphics::draw(ctx, &self.tri)?;
         Ok(())
     }
 

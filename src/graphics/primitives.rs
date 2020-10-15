@@ -1,6 +1,3 @@
-use crate::{GameError, GameResult};
-
-
 // TODO: implement useful shader
 
 /// Default vertex shader that will be used for rendering textured meshes in 2D.

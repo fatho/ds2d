@@ -5,7 +5,6 @@ use glutin::{
     event_loop::EventLoop,
 };
 use log::error;
-use std::rc::Rc;
 
 use crate::{GameError, graphics::Color};
 

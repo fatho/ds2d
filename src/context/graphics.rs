@@ -3,7 +3,7 @@
 
 use gl::types::GLenum;
 use glutin::{dpi::PhysicalSize, WindowedContext};
-use std::{collections::HashMap, rc::Rc};
+use std::rc::Rc;
 
 use crate::{GameError, GameResult};
 
@@ -269,9 +269,12 @@ impl Program {
         Program::new(&[vs, fs])
     }
 
-    pub fn bind(program: Option<&Program>) -> GameResult<()> {
-        let id = program.map_or(0, |p| p.id);
-        unsafe { CheckGl!(gl::UseProgram(id)) }
+    pub fn bind(&self) -> GameResult<()> {
+        unsafe { CheckGl!(gl::UseProgram(self.id)) }
+    }
+
+    pub fn unbind() -> GameResult<()> {
+        unsafe { CheckGl!(gl::UseProgram(0)) }
     }
 }
 
@@ -298,9 +301,12 @@ impl Buffer {
         Ok(Buffer { id })
     }
 
-    pub fn bind(target: BufferTarget, buffer: Option<&Buffer>) -> GameResult<()> {
-        let id = buffer.map_or(0, |b| b.id);
-        unsafe { CheckGl!(gl::BindBuffer(target.to_gl(), id)) }
+    pub fn bind(target: BufferTarget, buffer: &Buffer) -> GameResult<()> {
+        unsafe { CheckGl!(gl::BindBuffer(target.to_gl(), buffer.id)) }
+    }
+
+    pub fn unbind(target: BufferTarget) -> GameResult<()> {
+        unsafe { CheckGl!(gl::BindBuffer(target.to_gl(), 0)) }
     }
 
     /// Create the buffer data storage and upload the given array.
@@ -381,9 +387,12 @@ impl VertexArray {
         Ok(VertexArray { id })
     }
 
-    pub fn bind(array: Option<&VertexArray>) -> GameResult<()> {
-        let id = array.map_or(0, |b| b.id);
-        unsafe { CheckGl!(gl::BindVertexArray(id)) }
+    pub fn bind(&self) -> GameResult<()> {
+        unsafe { CheckGl!(gl::BindVertexArray(self.id)) }
+    }
+
+    pub fn unbind() -> GameResult<()> {
+        unsafe { CheckGl!(gl::BindVertexArray(0)) }
     }
 
     pub fn id(&self) -> u32 {
