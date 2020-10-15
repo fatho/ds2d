@@ -1,8 +1,9 @@
 //! Implementation of the graphics stack.
 //! A lot of this assumes the presence of the global and all-encompassing GL context.
 
+use gl::types::GLenum;
 use glutin::{dpi::PhysicalSize, WindowedContext};
-use std::rc::Rc;
+use std::{collections::HashMap, rc::Rc};
 
 use crate::{GameError, GameResult};
 
@@ -14,8 +15,7 @@ pub(crate) struct GraphicsContext {
     pub screen_size: PhysicalSize<u32>,
     pub scale_factor: f64,
     pub can_debug: bool,
-    /// The default shader program used for performing all the 2D rendering.
-    pub program_2d: Program,
+    pub state: GlState,
 }
 
 impl GraphicsContext {
@@ -58,19 +58,12 @@ impl GraphicsContext {
         let screen_size = windowed_context.window().inner_size();
         let scale_factor = windowed_context.window().scale_factor();
 
-        let program_2d = {
-            let vs = Shader::new(ShaderType::Vertex, DEFAULT_VERTEX_SHADER)?;
-            let fs = Shader::new(ShaderType::Fragment, DEFAULT_FRAGMENT_SHADER)?;
-            Program::new(&[vs, fs])?
-        };
-        use_program(Some(&program_2d))?;
-
         Ok(Self {
             windowed_context,
             screen_size,
             scale_factor,
             can_debug,
-            program_2d,
+            state: GlState::default(),
         })
     }
 
@@ -79,7 +72,7 @@ impl GraphicsContext {
             unsafe {
                 gl::Enable(gl::DEBUG_OUTPUT);
 
-                use gl::types::{GLchar, GLenum, GLsizei, GLuint};
+                use gl::types::{GLchar, GLsizei, GLuint};
                 use std::ffi::c_void;
 
                 extern "system" fn callback(
@@ -130,7 +123,7 @@ impl GraphicsContext {
     }
 }
 
-pub fn get_error(location: &str) -> GameResult<()> {
+pub fn get_error(file: &str, line: u32, column: u32, expression: &str) -> GameResult<()> {
     let err = unsafe { gl::GetError() };
     let description = match err {
         gl::NO_ERROR => return Ok(()),
@@ -144,12 +137,65 @@ pub fn get_error(location: &str) -> GameResult<()> {
         // Shouldn't actually occur according to spec
         _ => "UNKNOWN",
     };
-    Err(GameError::Graphics(format!("{}: {}", location, description)))
+    Err(GameError::Graphics(format!("{} ({}:{}:{}) returned error {}", expression, file, line, column, description)))
 }
 
+macro_rules! CheckGl {
+    ($gl_call:expr) => {
+        {
+            let result = $gl_call;
+            match get_error(file!(), line!(), column!(), stringify!($gl_call)) {
+                Ok(()) => Ok(result),
+                Err(err) => Err(err),
+            }
+        }
+    };
+}
+
+macro_rules! CheckGlNonZero {
+    ($gl_call:expr) => {
+        {
+            let result = $gl_call;
+            if result != 0 {
+                Ok(result)
+            } else {
+                match get_error(file!(), line!(), column!(), stringify!($gl_call)) {
+                    Ok(()) => Err(GameError::Graphics("Unexpected GL_NO_ERROR".to_string())),
+                    Err(err) => Err(err),
+                }
+            }
+        }
+    };
+}
+
+/// OpenGL state tracking, to prevent objects being destroyed while they are still in use.
+/// Also allows avoiding redundant rebinds.
+#[derive(Debug, Default)]
+pub struct GlState {
+    /// The currently active program (as tracked by this state)
+    pub program: Option<Rc<Program>>,
+    pub vertex_buffer: Option<Rc<Buffer>>,
+}
+
+impl GlState {
+    pub fn with_buffer<R, F: FnOnce() -> GameResult<R>>(&mut self, target: BufferTarget, buffer: Rc<Buffer>, callback: F) -> GameResult<R> {
+        let prev = match target {
+            BufferTarget::Vertex => self.vertex_buffer.clone(),
+        };
+        Buffer::bind(target, Some(&buffer))?;
+        self.vertex_buffer = Some(buffer);
+
+        let result = callback();
+
+        Buffer::bind(target, prev.as_deref())?;
+        self.vertex_buffer = prev;
+
+        result
+    }
+}
 
 /// The supported kinds of shaders.
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum ShaderType {
     /// A vertex shader, for processing the vertices of a mesh.
     Vertex,
@@ -169,20 +215,14 @@ impl Shader {
             ShaderType::Vertex => gl::VERTEX_SHADER,
             ShaderType::Fragment => gl::FRAGMENT_SHADER,
         };
-        let shader = unsafe { gl::CreateShader(gl_type) };
-        if shader == 0 {
-            get_error("CreateShader")?;
-            return Err(GameError::Graphics("Could not create shader but no error reported".into()));
-        }
+        let shader = unsafe { CheckGlNonZero!(gl::CreateShader(gl_type))? };
         log::trace!("CreateShader() = {}", shader);
         let shader = Shader { id: shader };
 
         unsafe {
             // Load and compile source code
-            gl::ShaderSource(shader.id, 1, &(source.as_ptr() as _), &(source.len() as _));
-            get_error("ShaderSource")?;
-            gl::CompileShader(shader.id);
-            get_error("CompileShader")?;
+            CheckGl!(gl::ShaderSource(shader.id, 1, &(source.as_ptr() as _), &(source.len() as _)))?;
+            CheckGl!(gl::CompileShader(shader.id))?;
             // Check result
             let mut status = 0i32;
             gl::GetShaderiv(shader.id, gl::COMPILE_STATUS, &mut status);
@@ -217,22 +257,16 @@ pub struct Program {
 impl Program {
     /// Create a program by linking individual shaders.
     pub fn new(shaders: &[Shader]) -> GameResult<Program> {
-        let program = unsafe { gl::CreateProgram() };
-        if program == 0 {
-            get_error("CreateProgram")?;
-            return Err(GameError::Graphics("Could not create program but no error reported".into()));
-        }
+        let program = unsafe { CheckGlNonZero!(gl::CreateProgram())? };
         log::trace!("CreateProgram() = {}", program);
         let program = Program { id: program };
 
         unsafe {
             // Link all the shaders
             for shader in shaders {
-                gl::AttachShader(program.id, shader.id);
-                get_error("AttachShader")?;
+                CheckGl!(gl::AttachShader(program.id, shader.id))?;
             }
-            gl::LinkProgram(program.id);
-            get_error("LinkProgram")?;
+            CheckGl!(gl::LinkProgram(program.id))?;
             // Check result
             let mut status = 0i32;
             gl::GetProgramiv(program.id, gl::LINK_STATUS, &mut status);
@@ -249,6 +283,13 @@ impl Program {
 
         Ok(program)
     }
+
+    /// Compile a program consisting of a vertex and fragment shader from source.
+    pub fn from_source(vertex_shader: &str, fragment_shader: &str) -> GameResult<Program> {
+        let vs = Shader::new(ShaderType::Vertex, vertex_shader)?;
+        let fs = Shader::new(ShaderType::Fragment, fragment_shader)?;
+        Program::new(&[vs, fs])
+    }
 }
 
 impl Drop for Program {
@@ -259,31 +300,83 @@ impl Drop for Program {
     }
 }
 
-/// Make a shader program active, or unset the current shader program.
-pub fn use_program(program: Option<&Program>) -> GameResult<()> {
-    let id = program.map_or(0, |p| p.id);
-    log::trace!("UseProgram({})", program.map_or(0, |p| p.id));
-    unsafe  { gl::UseProgram(id) }
-    get_error("UseProgram")
+#[derive(Debug)]
+pub struct Buffer {
+    id: u32,
 }
 
+impl Buffer {
+    pub fn new() -> GameResult<Buffer> {
+        let mut id = 0;
+        unsafe {
+            CheckGl!(gl::GenBuffers(1, &mut id))?;
+            log::trace!("GenBuffers() = {}", id);
+        }
+        Ok(Buffer { id })
+    }
 
-// TODO: implement useful shader
+    pub fn bind(target: BufferTarget, buffer: Option<&Buffer>) -> GameResult<()> {
+        let id = buffer.map_or(0, |b| b.id);
+        unsafe { CheckGl!(gl::BindBuffer(target.to_gl(), id)) }
+    }
 
-/// Default vertex shader that will be used for rendering textured meshes in 2D.
-pub const DEFAULT_VERTEX_SHADER: &str = r"#version 330 core
-layout (location = 0) in vec2 pos;
+    /// Create the buffer data storage and upload the given array.
+    ///
+    /// # Safety
+    ///
+    /// Highly unsafe. Make sure that `T` is a `repr(C)` type.
+    pub unsafe fn data<T>(target: BufferTarget, data: &[T], usage: BufferUsage) -> GameResult<()> {
+        let size = std::mem::size_of_val(data);
+        if size > std::isize::MAX as usize {
+            return Err(GameError::Graphics("Buffer too large".to_string()))
+        }
+        CheckGl!(gl::BufferData(target.to_gl(), size as isize, data.as_ptr() as *const _, usage.to_gl()))
+    }
+}
 
-void main()
-{
-    gl_Position = vec4(pos.x, pos.y,0.0, 1.0);
-}";
+impl Drop for Buffer {
+    fn drop(&mut self) {
+        log::trace!("DeleteBuffers() = {}", self.id);
+        unsafe {
+            gl::DeleteBuffers(1, &self.id);
+        }
+    }
+}
 
-/// Default fragment shader that will be used for rendering textured meshes in 2D.
-pub const DEFAULT_FRAGMENT_SHADER: &str = r"#version 330 core
-out vec4 FragColor;
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum BufferTarget {
+    Vertex,
+}
 
-void main()
-{
-    FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);
-}";
+impl BufferTarget {
+    pub fn to_gl(self) -> GLenum {
+        match self {
+            BufferTarget::Vertex => gl::ARRAY_BUFFER,
+        }
+    }
+}
+
+/// A hint to the GL implementation as to how a buffer object's data store
+/// will be accessed. This enables the GL implementation to make more
+/// intelligent decisions that may significantly impact buffer object
+/// performance. It does not, however, constrain the actual usage of the
+/// data store
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum BufferUsage {
+    /// The data store contents will be modified once and used at most a few times.
+    StreamDraw,
+    /// The data store contents will be modified once and used many times.
+    StaticDraw,
+    /// The data store contents will be modified repeatedly and used many times.
+    DynamicDraw,
+}
+
+impl BufferUsage {
+    pub fn to_gl(self) -> GLenum {
+        match self {
+            BufferUsage::StreamDraw => gl::STREAM_DRAW,
+            BufferUsage::StaticDraw => gl::STATIC_DRAW,
+            BufferUsage::DynamicDraw => gl::DYNAMIC_DRAW,
+        }
+    }
+}
