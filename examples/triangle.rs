@@ -34,7 +34,7 @@ impl HelloGame {
 impl ds2d::Game for HelloGame {
     fn draw(&mut self, ctx: &mut ds2d::Context) -> GameResult<()> {
         graphics::clear(ctx, Color::CORNFLOWER_BLUE);
-        graphics::draw(ctx, &self.tri)?;
+        graphics::draw(ctx, &mut self.tri)?;
         Ok(())
     }
 

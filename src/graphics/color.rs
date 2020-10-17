@@ -1,5 +1,6 @@
 /// A color represented as normalized 32 bit float RGBA value.
 #[derive(Debug, Copy, Clone)]
+#[repr(C)]
 pub struct Color {
     /// red component
     pub r: f32,
@@ -37,5 +38,17 @@ impl Color {
 
     pub fn from_rgb_u8(r: u8, g: u8, b: u8) -> Self {
         Self::from_rgba_u8(r, g, b, 255)
+    }
+}
+
+impl From<[f32; 4]> for Color {
+    fn from(data: [f32; 4]) -> Self {
+        Color::from_rgba(data[0], data[1], data[2], data[3])
+    }
+}
+
+impl From<Color> for [f32; 4] {
+    fn from(color: Color) -> Self {
+        [color.r, color.g, color.b, color.a]
     }
 }

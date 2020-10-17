@@ -14,6 +14,7 @@ pub(crate) struct GraphicsContext {
     pub can_debug: bool,
     /// Converting pixel coordinates to normalized device coordinates
     pub pixel_projection: Matrix3<f32>,
+    pub blend_mode: super::blend::BlendMode,
 }
 
 impl GraphicsContext {
@@ -56,12 +57,23 @@ impl GraphicsContext {
         let screen_size = windowed_context.window().inner_size();
         let scale_factor = windowed_context.window().scale_factor();
 
+        // Setup blending
+        let blend_mode = super::blend::BlendMode::alpha_blend();
+        unsafe {
+            gl::Enable(gl::BLEND);
+        }
+        if let Err(err) = blend_mode.apply() {
+            // This should not happen, as we use a valid combination of parameters as default
+            log::error!("bug! an error occurred when applying the initial blend mode: {}", err);
+        }
+
         Self {
             windowed_context,
             screen_size,
             scale_factor,
             can_debug,
             pixel_projection: compute_pixel_projection(screen_size),
+            blend_mode,
         }
     }
 
@@ -255,16 +267,24 @@ pub fn get_error(
     }
 }
 
+#[macro_export]
 macro_rules! CheckGl {
     ($gl_call:expr) => {{
         let result = $gl_call;
-        match get_error(file!(), line!(), column!(), stringify!($gl_call), false) {
+        match $crate::graphics::context::get_error(
+            file!(),
+            line!(),
+            column!(),
+            stringify!($gl_call),
+            false,
+        ) {
             Ok(()) => Ok(result),
             Err(err) => Err(err),
         }
     }};
 }
 
+#[macro_export]
 macro_rules! CheckGlNonZero {
     ($gl_call:expr) => {{
         let result = $gl_call;
@@ -321,14 +341,18 @@ impl Shader {
             if status != gl::TRUE as i32 {
                 // Return shader compiler output as error
                 let mut info_log_length = 0;
-                gl::GetShaderiv(shader.id, gl::INFO_LOG_LENGTH, &mut info_log_length);
+                CheckGl!(gl::GetShaderiv(
+                    shader.id,
+                    gl::INFO_LOG_LENGTH,
+                    &mut info_log_length
+                ))?;
                 let mut buffer = vec![0u8; info_log_length as usize];
-                gl::GetShaderInfoLog(
+                CheckGl!(gl::GetShaderInfoLog(
                     shader.id,
                     info_log_length,
                     std::ptr::null_mut(),
                     buffer.as_mut_ptr() as _,
-                );
+                ))?;
                 let log =
                     String::from_utf8_lossy(&buffer[0..buffer.len().saturating_sub(1)]).into();
                 return Err(BackendError::CompileShader { log });
@@ -373,18 +397,22 @@ impl Program {
             CheckGl!(gl::LinkProgram(program.id))?;
             // Check result
             let mut status = 0i32;
-            gl::GetProgramiv(program.id, gl::LINK_STATUS, &mut status);
+            CheckGl!(gl::GetProgramiv(program.id, gl::LINK_STATUS, &mut status))?;
             if status != gl::TRUE as i32 {
                 // Return program compiler output as error
                 let mut info_log_length = 0;
-                gl::GetProgramiv(program.id, gl::INFO_LOG_LENGTH, &mut info_log_length);
+                CheckGl!(gl::GetProgramiv(
+                    program.id,
+                    gl::INFO_LOG_LENGTH,
+                    &mut info_log_length
+                ))?;
                 let mut buffer = vec![0u8; info_log_length as usize];
-                gl::GetProgramInfoLog(
+                CheckGl!(gl::GetProgramInfoLog(
                     program.id,
                     info_log_length,
                     std::ptr::null_mut(),
                     buffer.as_mut_ptr() as _,
-                );
+                ))?;
                 let log =
                     String::from_utf8_lossy(&buffer[0..buffer.len().saturating_sub(1)]).into();
                 return Err(BackendError::LinkProgram { log });
@@ -494,6 +522,27 @@ impl Program {
         Ok(())
     }
 
+    fn set_uniform_int_ish(
+        &self,
+        uniform: &str,
+        value: i32,
+        gl_type: GLenum,
+    ) -> Result<(), BackendError> {
+        let info = self.get_typed_uniform(uniform, gl_type)?;
+        unsafe {
+            gl::Uniform1i(info.location, value);
+        }
+        Ok(())
+    }
+
+    pub fn set_uniform_int(&self, uniform: &str, value: i32) -> Result<(), BackendError> {
+        self.set_uniform_int_ish(uniform, value, gl::INT)
+    }
+
+    pub fn set_uniform_sampler2d(&self, uniform: &str, value: i32) -> Result<(), BackendError> {
+        self.set_uniform_int_ish(uniform, value, gl::SAMPLER_2D)
+    }
+
     pub fn bind(&self) -> Result<(), BackendError> {
         unsafe { CheckGl!(gl::UseProgram(self.id)) }
     }
@@ -558,6 +607,20 @@ impl Buffer {
             target,
             size as isize,
             data.as_ptr() as *const _,
+            usage
+        ))
+    }
+
+    /// Create the buffer data storage with undefined contents.
+    ///
+    /// # Safety
+    ///
+    /// Highly unsafe. Make sure to initialize the buffer before it is used.
+    pub unsafe fn alloc(target: GLenum, size: GLsizei, usage: GLenum) -> Result<(), BackendError> {
+        CheckGl!(gl::BufferData(
+            target,
+            size as isize,
+            std::ptr::null(),
             usage
         ))
     }

@@ -1,12 +1,20 @@
 use std::{path::Path, rc::Rc};
 
-use crate::Context;
+use crate::{CheckGl, Context};
 
 use super::context::Texture;
 
 /// A reference counted 2D texture that can be cheaply shared between several sprites.
+#[derive(Debug)]
 pub struct Texture2D {
-    raw: Rc<Texture>,
+    inner: Rc<Texture2DImpl>,
+}
+
+#[derive(Debug)]
+struct Texture2DImpl {
+    raw: Texture,
+    width: u32,
+    height: u32,
 }
 
 impl Texture2D {
@@ -39,12 +47,29 @@ impl Texture2D {
             image.height() as i32,
             &*image,
         )?;
+        unsafe {
+            CheckGl!(gl::GenerateMipmap(gl::TEXTURE_2D))?;
+        }
         Texture::unbind(gl::TEXTURE_2D)?;
 
-        Ok(Texture2D { raw: Rc::new(raw) })
+        Ok(Texture2D {
+            inner: Rc::new(Texture2DImpl {
+                raw,
+                width: image.width(),
+                height: image.height(),
+            }),
+        })
+    }
+
+    pub fn width(&self) -> u32 {
+        self.inner.width
+    }
+
+    pub fn height(&self) -> u32 {
+        self.inner.height
     }
 
     pub fn raw(&self) -> &Texture {
-        &self.raw
+        &self.inner.raw
     }
 }

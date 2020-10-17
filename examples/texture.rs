@@ -1,3 +1,4 @@
+use cgmath::Vector2;
 use ds2d::{
     graphics::{self, Color},
     Context, GameResult,
@@ -5,38 +6,22 @@ use ds2d::{
 use log::error;
 
 pub struct HelloGame {
-    tri: graphics::Mesh,
+    sprite: graphics::Sprite,
 }
 
 impl HelloGame {
     pub fn new(ctx: &mut Context) -> GameResult<HelloGame> {
-        let _tex = graphics::Texture2D::from_file(ctx, "examples/face.png")?;
+        let tex = graphics::Texture2D::from_file(ctx, "examples/face.png")?;
+        let sprite = graphics::Sprite::new(ctx, tex, Vector2::new(100.0, 100.0), Color::WHITE)?;
 
-        // let tri = graphics::Mesh::new(ctx, &[
-        //     cgmath::Vector2::new(0.0, 0.5),
-        //     cgmath::Vector2::new(-0.75, 0.0),
-        //     cgmath::Vector2::new(0.5, 0.0),
-        //     cgmath::Vector2::new(0.0, -0.75),
-        // ], &[0, 1, 2, 1, 2, 3])?;
-        let tri = graphics::Mesh::new(
-            ctx,
-            &[
-                cgmath::Vector2::new(400.0, 200.0),
-                cgmath::Vector2::new(100.0, 400.0),
-                cgmath::Vector2::new(500.0, 400.0),
-                cgmath::Vector2::new(400.0, 700.0),
-                //], &[0, 1, 2, 1, 2, 3])?;
-            ],
-            &[0, 2, 1, 1, 2, 3],
-        )?;
-        Ok(Self { tri })
+        Ok(Self { sprite })
     }
 }
 
 impl ds2d::Game for HelloGame {
     fn draw(&mut self, ctx: &mut ds2d::Context) -> GameResult<()> {
         graphics::clear(ctx, Color::CORNFLOWER_BLUE);
-        graphics::draw(ctx, &self.tri)?;
+        graphics::draw(ctx, &mut self.sprite)?;
         Ok(())
     }
 
