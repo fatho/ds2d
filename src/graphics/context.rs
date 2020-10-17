@@ -1,9 +1,10 @@
 //! Implementation of the graphics stack.
 //! A lot of this assumes the presence of the global and all-encompassing GL context.
 
+use cgmath::{Matrix3, Vector2};
 use gl::types::GLenum;
 use glutin::{dpi::PhysicalSize, WindowedContext};
-use std::rc::Rc;
+use std::{collections::HashMap, rc::Rc};
 
 use crate::{GameError, GameResult};
 
@@ -13,6 +14,8 @@ pub(crate) struct GraphicsContext {
     pub screen_size: PhysicalSize<u32>,
     pub scale_factor: f64,
     pub can_debug: bool,
+    /// Converting pixel coordinates to normalized device coordinates
+    pub pixel_projection: Matrix3<f32>,
 }
 
 impl GraphicsContext {
@@ -60,6 +63,7 @@ impl GraphicsContext {
             screen_size,
             scale_factor,
             can_debug,
+            pixel_projection: compute_pixel_projection(screen_size),
         }
     }
 
@@ -122,8 +126,25 @@ impl GraphicsContext {
         self.windowed_context.resize(new_size);
         unsafe { gl::Viewport(0, 0, new_size.width as i32, new_size.height as i32) };
         self.screen_size = new_size;
+        self.pixel_projection = compute_pixel_projection(new_size);
+
+        log::trace!("Top left: {:?}", self.pixel_projection * Vector2::new(0.0, 0.0).extend(1.0));
+        log::trace!("Top right: {:?}", self.pixel_projection * Vector2::new(new_size.width as f32, 0.0).extend(1.0));
+        log::trace!("Bottom left: {:?}", self.pixel_projection * Vector2::new(0.0, new_size.height as f32).extend(1.0));
+        log::trace!("Bottom right: {:?}", self.pixel_projection * Vector2::new(new_size.width as f32, new_size.height as f32).extend(1.0));
     }
 }
+
+pub fn compute_pixel_projection(screen_size: PhysicalSize<u32>) -> cgmath::Matrix3<f32> {
+    let scale = super::transform::scale(
+        Vector2::new(2.0 / screen_size.width as f32, -2.0 / screen_size.height as f32)
+    );
+    let translate = super::transform::translate(
+        Vector2::new(-1.0, 1.0)
+    );
+    translate * scale
+}
+
 
 pub fn get_error(file: &str, line: u32, column: u32, expression: &str) -> GameResult<()> {
     let err = unsafe { gl::GetError() };
@@ -228,6 +249,7 @@ impl Drop for Shader {
 #[derive(Debug)]
 pub struct Program {
     id: u32,
+    uniforms: HashMap<String, UniformInfo>,
 }
 
 impl Program {
@@ -235,7 +257,7 @@ impl Program {
     pub fn new(shaders: &[Shader]) -> GameResult<Program> {
         let program = unsafe { CheckGlNonZero!(gl::CreateProgram())? };
         log::trace!("CreateProgram() = {}", program);
-        let program = Program { id: program };
+        let mut program = Program { id: program, uniforms: HashMap::new() };
 
         unsafe {
             // Link all the shaders
@@ -255,6 +277,31 @@ impl Program {
                 let log = String::from_utf8_lossy(&buffer[0..buffer.len().saturating_sub(1)]);
                 return Err(GameError::Graphics(format!("Failed to link program:\n{}", log)));
             }
+
+            // query number of uniforms
+            let mut num_uniforms = 0;
+            CheckGl!(gl::GetProgramiv(program.id, gl::ACTIVE_UNIFORMS, &mut num_uniforms))?;
+            // query maximum length of a uniform name including the null terminator
+            let mut max_len_uniform = 0;
+            CheckGl!(gl::GetProgramiv(program.id, gl::ACTIVE_UNIFORM_MAX_LENGTH, &mut max_len_uniform))?;
+            assert!(max_len_uniform >= 0);
+            // query uniforms
+            let mut uniform_name_buffer = vec![0u8; max_len_uniform as usize];
+            for i in 0..num_uniforms {
+                let mut name_len = 0;
+                let mut size = 0;
+                let mut gl_type = 0;
+                CheckGl!(gl::GetActiveUniform(program.id, i as u32, max_len_uniform, &mut name_len, &mut size, &mut gl_type, uniform_name_buffer.as_mut_ptr() as *mut i8))?;
+                let name_bytes = &uniform_name_buffer[0..name_len as usize];
+                let name_bytes_with_nul = &uniform_name_buffer[0..(name_len + 1) as usize];
+                if let Ok(name) = std::str::from_utf8(name_bytes) {
+                    let location = CheckGl!(gl::GetUniformLocation(program.id, name_bytes_with_nul.as_ptr() as _))?;
+                    log::debug!("Found uniform {} (type: {}, size: {}, location: {})", name, gl_type, size, location);
+                    program.uniforms.insert(name.to_owned(), UniformInfo { gl_type, size, location });
+                } else {
+                    log::warn!("Ignoring invalid uniform {:?}", name_bytes);
+                }
+            }
         }
 
         Ok(program)
@@ -267,6 +314,22 @@ impl Program {
         Program::new(&[vs, fs])
     }
 
+    fn get_typed_uniform(&self, uniform: &str, expected_type: GLenum) -> GameResult<&UniformInfo> {
+        let info = self.uniforms.get(uniform).ok_or_else(|| GameError::Graphics(format!("No such uniform: {}", uniform)))?;
+        if info.gl_type != expected_type {
+            return Err(GameError::Graphics("Invalid uniform type".to_string()));
+        }
+        Ok(info)
+    }
+
+    pub fn set_uniform_mat3(&self, uniform: &str, value: &Matrix3<f32>) -> GameResult<()> {
+        let info = self.get_typed_uniform(uniform, gl::FLOAT_MAT3)?;
+        unsafe {
+            gl::UniformMatrix3fv(info.location, 1, gl::FALSE, value as *const _ as *const f32);
+        }
+        Ok(())
+    }
+
     pub fn bind(&self) -> GameResult<()> {
         unsafe { CheckGl!(gl::UseProgram(self.id)) }
     }
@@ -275,6 +338,15 @@ impl Program {
         unsafe { CheckGl!(gl::UseProgram(0)) }
     }
 }
+
+/// Information about a uniform in a shader.
+#[derive(Debug)]
+pub struct UniformInfo {
+    pub gl_type: GLenum,
+    pub size: i32,
+    pub location: i32,
+}
+
 
 impl Drop for Program {
     fn drop(&mut self) {

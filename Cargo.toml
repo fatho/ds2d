@@ -22,7 +22,7 @@ include = [
 glutin = "0.25.1"
 log = "0.4.11"
 gl = "0.14.0"
-cgmath = "0.17.0"
+cgmath = { version = "0.17.0", features = ["swizzle"] }
 
 [dev-dependencies]
 stderrlog = "0.5.0"

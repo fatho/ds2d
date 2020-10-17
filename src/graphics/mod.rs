@@ -6,15 +6,14 @@ use glutin::dpi::PhysicalSize;
 
 mod color;
 mod rect;
-mod camera;
 
 pub(crate) mod context;
 
 pub mod primitives;
+pub mod transform;
 
 pub use color::Color;
 pub use rect::Rect;
-pub use camera::Camera2d;
 
 use context::{Buffer, Program, VertexArray};
 
@@ -33,11 +32,14 @@ pub struct Mesh {
 
 impl Mesh {
     const VERTEX_SHADER: &'static str = r"#version 330 core
-    layout (location = 0) in vec2 pos;
+    layout (location = 0) in vec2 position;
+
+    uniform mat3 model_view_projection = mat3(1.0);
 
     void main()
     {
-        gl_Position = vec4(pos.x, pos.y,0.0, 1.0);
+        vec3 transformed = model_view_projection * vec3(position, 1.0);
+        gl_Position = vec4(transformed.xy, 0.0, 1.0);
     }";
 
     const FRAGMENT_SHADER: &'static str = r"#version 330 core
@@ -93,8 +95,9 @@ impl Mesh {
 }
 
 impl Drawable for Mesh {
-    fn draw(&self, _ctx: &mut Context) -> GameResult<()> {
+    fn draw(&self, ctx: &mut Context) -> GameResult<()> {
         self.program.bind()?;
+        self.program.set_uniform_mat3("model_view_projection", &ctx.graphics.pixel_projection)?;
         self.vao.bind()?;
         unsafe { gl::DrawElements(gl::TRIANGLES, self.num_elements, gl::UNSIGNED_INT, 0 as _); }
         VertexArray::unbind()?;

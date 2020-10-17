@@ -7,12 +7,19 @@ pub struct HelloGame {
 
 impl HelloGame {
     pub fn new(ctx: &mut Context) -> GameResult<HelloGame> {
+        // let tri = graphics::Mesh::new(ctx, &[
+        //     cgmath::Vector2::new(0.0, 0.5),
+        //     cgmath::Vector2::new(-0.75, 0.0),
+        //     cgmath::Vector2::new(0.5, 0.0),
+        //     cgmath::Vector2::new(0.0, -0.75),
+        // ], &[0, 1, 2, 1, 2, 3])?;
         let tri = graphics::Mesh::new(ctx, &[
-            cgmath::Vector2::new(0.0, 0.5),
-            cgmath::Vector2::new(-0.5, 0.0),
-            cgmath::Vector2::new(0.5, 0.0),
-            cgmath::Vector2::new(0.0, -0.5),
-        ], &[0, 1, 2, 1, 2, 3])?;
+            cgmath::Vector2::new(400.0, 200.0),
+            cgmath::Vector2::new(100.0, 400.0),
+            cgmath::Vector2::new(500.0, 400.0),
+            cgmath::Vector2::new(400.0, 700.0),
+        //], &[0, 1, 2, 1, 2, 3])?;
+        ], &[0, 2, 1, 1, 2, 3])?;
         Ok(Self {
             tri
         })
