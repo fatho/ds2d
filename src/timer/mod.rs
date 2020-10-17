@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-pub (crate) mod context;
+pub(crate) mod context;
 
 use crate::Context;
 

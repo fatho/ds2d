@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
-use glutin::event::VirtualKeyCode;
 use glutin::event::MouseButton;
+use glutin::event::VirtualKeyCode;
 
 #[derive(Debug)]
 pub(crate) struct MouseContext {

@@ -4,21 +4,31 @@ use cgmath::{Matrix3, One, Vector2, Zero};
 
 pub fn translate<T: One + Zero>(offset: Vector2<T>) -> Matrix3<T> {
     Matrix3::new(
-        T::one(), T::zero(), T::zero(),
-        T::zero(), T::one(), T::zero(),
-        offset.x, offset.y, T::one(),
+        T::one(),
+        T::zero(),
+        T::zero(),
+        T::zero(),
+        T::one(),
+        T::zero(),
+        offset.x,
+        offset.y,
+        T::one(),
     )
 }
 
 pub fn scale<T: One + Zero>(scale: Vector2<T>) -> Matrix3<T> {
     Matrix3::new(
-        scale.x, T::zero(), T::zero(),
-        T::zero(), scale.y, T::zero(),
-        T::zero(), T::zero(), T::one()
+        scale.x,
+        T::zero(),
+        T::zero(),
+        T::zero(),
+        scale.y,
+        T::zero(),
+        T::zero(),
+        T::zero(),
+        T::one(),
     )
 }
-
-
 
 #[test]
 fn test_translate() {

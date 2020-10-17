@@ -1,4 +1,3 @@
-
 /// An axis-aligned rectangle
 pub struct Rect<T> {
     pub x: T,
@@ -7,6 +6,4 @@ pub struct Rect<T> {
     pub h: T,
 }
 
-impl<T: PartialOrd> Rect<T> {
-
-}
+impl<T: PartialOrd> Rect<T> {}

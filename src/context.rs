@@ -6,7 +6,7 @@ use glutin::{
 };
 use log::error;
 
-use crate::{GameError, graphics::Color};
+use crate::{graphics::Color, GameError};
 
 use crate::graphics::context::GraphicsContext;
 use crate::input::context::{KeyboardContext, MouseContext};
@@ -158,7 +158,11 @@ impl Context {
                     }
                     WindowEvent::Resized(new_size) => {
                         self.graphics.resize(new_size);
-                        log::debug!("Window resized: {:?} ({}x)", new_size, self.graphics.scale_factor);
+                        log::debug!(
+                            "Window resized: {:?} ({}x)",
+                            new_size,
+                            self.graphics.scale_factor
+                        );
                     }
                     WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
                         self.graphics.scale_factor = scale_factor;

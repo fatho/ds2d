@@ -10,7 +10,7 @@ pub mod timer;
 #[derive(Debug)]
 pub enum GameError {
     /// There was an error in the graphics subsystem.
-    Graphics(String),
+    Graphics(graphics::GraphicsError),
 }
 
 impl std::fmt::Display for GameError {
@@ -18,6 +18,18 @@ impl std::fmt::Display for GameError {
         match self {
             GameError::Graphics(err) => writeln!(f, "graphics error: {}", err),
         }
+    }
+}
+
+impl From<graphics::GraphicsError> for GameError {
+    fn from(err: graphics::GraphicsError) -> Self {
+        GameError::Graphics(err)
+    }
+}
+
+impl From<graphics::BackendError> for GameError {
+    fn from(err: graphics::BackendError) -> Self {
+        GameError::Graphics(err.into())
     }
 }
 

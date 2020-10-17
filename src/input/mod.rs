@@ -1,4 +1,4 @@
-pub (crate) mod context;
+pub(crate) mod context;
 
 /// Handle keyboard input
 pub mod keyboard {

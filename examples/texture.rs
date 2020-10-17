@@ -10,6 +10,8 @@ pub struct HelloGame {
 
 impl HelloGame {
     pub fn new(ctx: &mut Context) -> GameResult<HelloGame> {
+        let _tex = graphics::Texture2D::from_file(ctx, "examples/face.png")?;
+
         // let tri = graphics::Mesh::new(ctx, &[
         //     cgmath::Vector2::new(0.0, 0.5),
         //     cgmath::Vector2::new(-0.75, 0.0),
