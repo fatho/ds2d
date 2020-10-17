@@ -1,10 +1,15 @@
 use crate::context::graphics::{Buffer, Program, VertexArray};
 
 use super::{Context, GameResult};
+use cgmath::Vector2;
 use glutin::dpi::PhysicalSize;
 
 mod color;
+mod rect;
+mod camera;
 pub use color::Color;
+pub use rect::Rect;
+pub use camera::Camera2d;
 
 pub mod primitives;
 
@@ -40,7 +45,7 @@ impl Mesh {
     }";
 
 
-    pub fn new(_ctx: &mut Context, vertices: &[cgmath::Vector2<f32>], indices: &[u32]) -> GameResult<Mesh> {
+    pub fn new(_ctx: &mut Context, vertices: &[Vector2<f32>], indices: &[u32]) -> GameResult<Mesh> {
         if vertices.len() > std::u32::MAX as usize {
             return Err(crate::GameError::Graphics("Too many vertices".into()))
         }
@@ -69,7 +74,7 @@ impl Mesh {
             gl::EnableVertexAttribArray(0);
         }
         // NOTE: The ARRAY_BUFFER has been remembered by the VAO as part of the
-        // call to glVertexAttribPointer.
+        // call to glVertexAttribPointer, so we can unbind it again.
         Buffer::unbind(gl::ARRAY_BUFFER)?;
         VertexArray::unbind()?;
 
@@ -94,13 +99,28 @@ impl Drawable for Mesh {
     }
 }
 
+
+/// Implemented by every "well-behaved" entity that can be drawn, meaning
+/// - it respects the current coordinate system (TODO)
+/// - it can additionally be transformed as part of the draw call (TODO)
 pub trait Drawable {
     fn draw(&self, ctx: &mut Context) -> GameResult<()>;
 }
 
+
 pub fn draw<T: Drawable>(ctx: &mut Context, drawable: &T) -> GameResult<()> {
     drawable.draw(ctx)
 }
+
+
+pub fn clear(_ctx: &mut Context, color: Color) {
+    unsafe {
+        gl::ClearColor(color.r, color.g, color.b, color.a);
+        gl::Clear(gl::COLOR_BUFFER_BIT);
+    }
+}
+
+
 
 pub fn screen_size(ctx: &mut Context) -> PhysicalSize<u32> {
     ctx.graphics.screen_size
@@ -108,11 +128,4 @@ pub fn screen_size(ctx: &mut Context) -> PhysicalSize<u32> {
 
 pub fn scale_factor(ctx: &mut Context) -> f64 {
     ctx.graphics.scale_factor
-}
-
-pub fn clear(_ctx: &mut Context, color: Color) {
-    unsafe {
-        gl::ClearColor(color.r, color.g, color.b, color.a);
-        gl::Clear(gl::COLOR_BUFFER_BIT);
-    }
 }
