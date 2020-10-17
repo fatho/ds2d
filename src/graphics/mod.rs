@@ -15,10 +15,11 @@ mod sprite;
 pub use sprite::Sprite;
 mod blend;
 pub use blend::BlendMode;
+mod primitives;
+pub use primitives::RenderState;
 
 pub(crate) mod context;
 
-pub mod primitives;
 pub mod transform;
 
 pub use context::BackendError;
@@ -26,18 +27,21 @@ pub use context::BackendError;
 /// Implemented by every "well-behaved" entity that can be drawn, meaning
 /// - it respects the current coordinate system (TODO)
 pub trait Drawable {
-    fn draw(&mut self, ctx: &mut Context) -> GameResult<()>;
+    fn draw(&mut self, ctx: &mut Context, state: RenderState) -> GameResult<()>;
 }
 
 pub fn draw<T: Drawable>(ctx: &mut Context, drawable: &mut T) -> GameResult<()> {
-    drawable.draw(ctx)
+    let initial_state = RenderState {
+        transform: ctx.graphics.pixel_projection,
+        // Default to alpha blending, that's the most sensible choice for 2D
+        blend: Some(BlendMode::alpha_blend()),
+    };
+    drawable.draw(ctx, initial_state)
 }
 
-pub fn set_blend_mode(ctx: &mut Context, blend: BlendMode) -> GameResult<()> {
-    if ctx.graphics.blend_mode != blend {
-        blend.apply()?;
-    }
-    Ok(())
+/// Sets the blend mode used for subsequent draw calls.
+pub fn set_blend_mode(ctx: &mut Context, blend: Option<BlendMode>) -> GameResult<()> {
+    ctx.graphics.set_blend_mode(blend).map_err(|e| e.into())
 }
 
 pub fn clear(_ctx: &mut Context, color: Color) {

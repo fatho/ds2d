@@ -18,6 +18,11 @@ struct Texture2DImpl {
 }
 
 impl Texture2D {
+    pub fn from_memory(ctx: &mut Context, data: &[u8]) -> Result<Self, super::GraphicsError> {
+        let image = image::load_from_memory(data)?.into_rgba();
+        Self::from_image(ctx, &image)
+    }
+
     pub fn from_file<P: AsRef<Path>>(
         ctx: &mut Context,
         filename: P,

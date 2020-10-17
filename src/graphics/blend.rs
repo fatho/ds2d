@@ -58,20 +58,11 @@ impl BlendMode {
             dst_alpha: BlendParam::Zero,
         }
     }
+}
 
-    pub(crate) fn apply(self) -> Result<(), BackendError> {
-        unsafe {
-            CheckGl!(gl::BlendEquationSeparate(
-                self.func_rgb.to_gl(),
-                self.func_alpha.to_gl()
-            ))?;
-            CheckGl!(gl::BlendFuncSeparate(
-                self.src_rgb.to_gl(),
-                self.dst_rgb.to_gl(),
-                self.src_alpha.to_gl(),
-                self.dst_alpha.to_gl()
-            ))
-        }
+impl Default for BlendMode {
+    fn default() -> Self {
+        BlendMode::alpha_blend()
     }
 }
 
@@ -86,7 +77,7 @@ pub enum BlendFunc {
 }
 
 impl BlendFunc {
-    fn to_gl(self) -> GLenum {
+    pub fn to_gl(self) -> GLenum {
         match self {
             BlendFunc::Add => gl::FUNC_ADD,
             BlendFunc::Subtract => gl::FUNC_SUBTRACT,
@@ -110,7 +101,7 @@ pub enum BlendParam {
 }
 
 impl BlendParam {
-    fn to_gl(self) -> GLenum {
+    pub fn to_gl(self) -> GLenum {
         match self {
             BlendParam::Zero => gl::ZERO,
             BlendParam::One => gl::ONE,

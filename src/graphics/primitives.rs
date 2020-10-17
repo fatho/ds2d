@@ -1,19 +1,13 @@
-// TODO: implement useful shader
+use cgmath::Matrix3;
 
-/// Default vertex shader that will be used for rendering textured meshes in 2D.
-pub const DEFAULT_VERTEX_SHADER: &str = r"#version 330 core
-layout (location = 0) in vec2 pos;
+use super::BlendMode;
 
-void main()
-{
-    gl_Position = vec4(pos.x, pos.y,0.0, 1.0);
-}";
+// pub struct Decomposed {
 
-/// Default fragment shader that will be used for rendering textured meshes in 2D.
-pub const DEFAULT_FRAGMENT_SHADER: &str = r"#version 330 core
-out vec4 FragColor;
+// }
 
-void main()
-{
-    FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);
-}";
+#[derive(Debug, Copy, Clone)]
+pub struct RenderState {
+    pub transform: Matrix3<f32>,
+    pub blend: Option<BlendMode>,
+}

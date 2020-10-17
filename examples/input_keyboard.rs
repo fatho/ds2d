@@ -22,9 +22,9 @@ impl ds2d::Game for InputGame {
     fn update(&mut self, ctx: &mut ds2d::Context) -> GameResult<()> {
         while ds2d::timer::run_fixed_timestep(ctx, 60.0, 5) {
             // Emulate analog axes with binary keyboard input
-            let red_axis = keyboard::axis_f32(ctx, keyboard::KeyCode::Q, keyboard::KeyCode::W);
-            let green_axis = keyboard::axis_f32(ctx, keyboard::KeyCode::A, keyboard::KeyCode::S);
-            let blue_axis = keyboard::axis_f32(ctx, keyboard::KeyCode::Z, keyboard::KeyCode::X);
+            let red_axis = keyboard::axis1d(ctx, keyboard::KeyCode::Q, keyboard::KeyCode::W);
+            let green_axis = keyboard::axis1d(ctx, keyboard::KeyCode::A, keyboard::KeyCode::S);
+            let blue_axis = keyboard::axis1d(ctx, keyboard::KeyCode::Z, keyboard::KeyCode::X);
 
             self.color.r = (self.color.r + red_axis / 600.0).max(0.0).min(1.0);
             self.color.g = (self.color.g + green_axis / 600.0).max(0.0).min(1.0);

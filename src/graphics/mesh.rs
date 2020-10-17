@@ -2,7 +2,7 @@
 
 use cgmath::Vector2;
 
-use super::context::{BackendError, Buffer, Program, VertexArray};
+use super::{RenderState, context::{BackendError, Buffer, Program, VertexArray}};
 use crate::{Context, GameResult};
 
 pub struct Mesh {
@@ -93,10 +93,10 @@ impl Mesh {
 }
 
 impl super::Drawable for Mesh {
-    fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
+    fn draw(&mut self, ctx: &mut Context, state: RenderState) -> GameResult<()> {
         self.program.bind()?;
-        self.program
-            .set_uniform_mat3("model_view_projection", &ctx.graphics.pixel_projection)?;
+        super::set_blend_mode(ctx, state.blend)?;
+        self.program.set_uniform_mat3("model_view_projection", &state.transform)?;
         self.vao.bind()?;
         unsafe {
             gl::DrawElements(gl::TRIANGLES, self.num_elements, gl::UNSIGNED_INT, 0 as _);

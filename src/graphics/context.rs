@@ -1,7 +1,7 @@
 //! Implementation of the graphics stack.
 //! A lot of this assumes the presence of the global and all-encompassing GL context.
 
-use cgmath::{Matrix3, Vector2};
+use cgmath::{Matrix3, Vector2, Vector4};
 use gl::types::{GLenum, GLsizei};
 use glutin::{dpi::PhysicalSize, WindowedContext};
 use std::{collections::HashMap, fmt::Display, rc::Rc};
@@ -14,7 +14,41 @@ pub(crate) struct GraphicsContext {
     pub can_debug: bool,
     /// Converting pixel coordinates to normalized device coordinates
     pub pixel_projection: Matrix3<f32>,
-    pub blend_mode: super::blend::BlendMode,
+    pub blend_mode: Option<super::blend::BlendMode>,
+}
+
+#[macro_export]
+macro_rules! CheckGl {
+    ($gl_call:expr) => {{
+        let result = $gl_call;
+        match $crate::graphics::context::get_error(
+            file!(),
+            line!(),
+            column!(),
+            stringify!($gl_call),
+            false,
+        ) {
+            Ok(()) => Ok(result),
+            Err(err) => Err(err),
+        }
+    }};
+}
+
+#[macro_export]
+macro_rules! CheckGlNonZero {
+    ($gl_call:expr) => {{
+        let result = $gl_call;
+        match get_error(
+            file!(),
+            line!(),
+            column!(),
+            stringify!($gl_call),
+            result == 0,
+        ) {
+            Ok(()) => Ok(result),
+            Err(err) => Err(err),
+        }
+    }};
 }
 
 impl GraphicsContext {
@@ -57,23 +91,13 @@ impl GraphicsContext {
         let screen_size = windowed_context.window().inner_size();
         let scale_factor = windowed_context.window().scale_factor();
 
-        // Setup blending
-        let blend_mode = super::blend::BlendMode::alpha_blend();
-        unsafe {
-            gl::Enable(gl::BLEND);
-        }
-        if let Err(err) = blend_mode.apply() {
-            // This should not happen, as we use a valid combination of parameters as default
-            log::error!("bug! an error occurred when applying the initial blend mode: {}", err);
-        }
-
         Self {
             windowed_context,
             screen_size,
             scale_factor,
             can_debug,
             pixel_projection: compute_pixel_projection(screen_size),
-            blend_mode,
+            blend_mode: None,
         }
     }
 
@@ -155,6 +179,32 @@ impl GraphicsContext {
             self.pixel_projection
                 * Vector2::new(new_size.width as f32, new_size.height as f32).extend(1.0)
         );
+    }
+
+    pub fn set_blend_mode(&mut self, blend_mode: Option<super::BlendMode>) -> Result<(), BackendError> {
+        if self.blend_mode != blend_mode {
+            if let Some(blend_mode) = blend_mode {
+                unsafe {
+                    if self.blend_mode.is_none() {
+                        unsafe { CheckGl!(gl::Enable(gl::BLEND))?; }
+                    }
+                    CheckGl!(gl::BlendEquationSeparate(
+                        blend_mode.func_rgb.to_gl(),
+                        blend_mode.func_alpha.to_gl()
+                    ))?;
+                    CheckGl!(gl::BlendFuncSeparate(
+                        blend_mode.src_rgb.to_gl(),
+                        blend_mode.dst_rgb.to_gl(),
+                        blend_mode.src_alpha.to_gl(),
+                        blend_mode.dst_alpha.to_gl()
+                    ))?;
+                }
+            } else if self.blend_mode.is_some() {
+                unsafe { CheckGl!(gl::Disable(gl::BLEND))?; }
+            }
+            self.blend_mode = blend_mode;
+        }
+        Ok(())
     }
 }
 
@@ -265,40 +315,6 @@ pub fn get_error(
             error,
         })
     }
-}
-
-#[macro_export]
-macro_rules! CheckGl {
-    ($gl_call:expr) => {{
-        let result = $gl_call;
-        match $crate::graphics::context::get_error(
-            file!(),
-            line!(),
-            column!(),
-            stringify!($gl_call),
-            false,
-        ) {
-            Ok(()) => Ok(result),
-            Err(err) => Err(err),
-        }
-    }};
-}
-
-#[macro_export]
-macro_rules! CheckGlNonZero {
-    ($gl_call:expr) => {{
-        let result = $gl_call;
-        match get_error(
-            file!(),
-            line!(),
-            column!(),
-            stringify!($gl_call),
-            result == 0,
-        ) {
-            Ok(()) => Ok(result),
-            Err(err) => Err(err),
-        }
-    }};
 }
 
 /// The supported kinds of shaders.
@@ -518,6 +534,18 @@ impl Program {
         let info = self.get_typed_uniform(uniform, gl::FLOAT_MAT3)?;
         unsafe {
             gl::UniformMatrix3fv(info.location, 1, gl::FALSE, value as *const _ as *const f32);
+        }
+        Ok(())
+    }
+
+    pub fn set_uniform_vec4(
+        &self,
+        uniform: &str,
+        value: Vector4<f32>,
+    ) -> Result<(), BackendError> {
+        let info = self.get_typed_uniform(uniform, gl::FLOAT_VEC4)?;
+        unsafe {
+            gl::Uniform4f(info.location, value.x, value.y, value.z, value.w);
         }
         Ok(())
     }

@@ -52,3 +52,15 @@ impl From<Color> for [f32; 4] {
         [color.r, color.g, color.b, color.a]
     }
 }
+
+impl From<cgmath::Vector4<f32>> for Color {
+    fn from(data: cgmath::Vector4<f32>) -> Self {
+        Color::from_rgba(data.x, data.y, data.z, data.w)
+    }
+}
+
+impl From<Color> for cgmath::Vector4<f32> {
+    fn from(color: Color) -> Self {
+        cgmath::Vector4::new(color.r, color.g, color.b, color.a)
+    }
+}
