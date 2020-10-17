@@ -1,18 +1,22 @@
-use crate::context::graphics::{Buffer, Program, VertexArray};
-
 use super::{Context, GameResult};
 use cgmath::Vector2;
 use glutin::dpi::PhysicalSize;
 
+
+
 mod color;
 mod rect;
 mod camera;
+
+pub(crate) mod context;
+
+pub mod primitives;
+
 pub use color::Color;
 pub use rect::Rect;
 pub use camera::Camera2d;
 
-pub mod primitives;
-
+use context::{Buffer, Program, VertexArray};
 
 pub struct Mesh {
     program: Program,

@@ -8,10 +8,9 @@ use log::error;
 
 use crate::{GameError, graphics::Color};
 
-pub(crate) mod graphics;
-pub(crate) mod keyboard;
-pub(crate) mod mouse;
-pub(crate) mod timer;
+use crate::graphics::context::GraphicsContext;
+use crate::input::context::{KeyboardContext, MouseContext};
+use crate::timer::context::TimerContext;
 
 /// The types of errors that can occur when initializing the context.
 #[derive(Debug)]
@@ -101,7 +100,7 @@ impl ContextBuilder {
             .build_windowed(window_builder, &event_loop)?;
         // The window is dropped in case of an error
         let windowed_context = unsafe { windowed_context.make_current().map_err(|(_, err)| err)? };
-        let mut context = Context::new(windowed_context)?;
+        let mut context = Context::new(windowed_context);
         if self.debug {
             context.graphics.init_debug();
         }
@@ -125,20 +124,20 @@ pub fn run(
 /// This will be passed to each call into the actual game.
 #[derive(Debug)]
 pub struct Context {
-    pub(crate) keyboard: keyboard::KeyboardContext,
-    pub(crate) mouse: mouse::MouseContext,
-    pub(crate) timer: timer::TimerContext,
-    pub(crate) graphics: graphics::GraphicsContext,
+    pub(crate) graphics: GraphicsContext,
+    pub(crate) keyboard: KeyboardContext,
+    pub(crate) mouse: MouseContext,
+    pub(crate) timer: TimerContext,
 }
 
 impl Context {
-    pub(crate) fn new(windowed_context: glutin::WindowedContext<glutin::PossiblyCurrent>) -> Result<Self, InitError> {
-        Ok(Self {
-            timer: timer::TimerContext::new(),
-            mouse: mouse::MouseContext::default(),
-            keyboard: keyboard::KeyboardContext::default(),
-            graphics: graphics::GraphicsContext::new(windowed_context)?,
-        })
+    pub(crate) fn new(windowed_context: glutin::WindowedContext<glutin::PossiblyCurrent>) -> Self {
+        Self {
+            graphics: GraphicsContext::new(windowed_context),
+            keyboard: KeyboardContext::default(),
+            mouse: MouseContext::default(),
+            timer: TimerContext::new(),
+        }
     }
 
     pub(crate) fn handle_event(

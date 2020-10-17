@@ -1,3 +1,5 @@
+pub (crate) mod context;
+
 /// Handle keyboard input
 pub mod keyboard {
     use crate::Context;
@@ -37,6 +39,7 @@ pub mod keyboard {
     }
 }
 
+/// Handle mouse input
 pub mod mouse {
     use crate::Context;
     use glutin::{dpi::PhysicalPosition, event::MouseButton};

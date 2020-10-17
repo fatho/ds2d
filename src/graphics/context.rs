@@ -7,8 +7,6 @@ use std::rc::Rc;
 
 use crate::{GameError, GameResult};
 
-use super::InitError;
-
 #[derive(Debug)]
 pub(crate) struct GraphicsContext {
     pub windowed_context: Rc<WindowedContext<glutin::PossiblyCurrent>>,
@@ -18,7 +16,7 @@ pub(crate) struct GraphicsContext {
 }
 
 impl GraphicsContext {
-    pub fn new(windowed_context: WindowedContext<glutin::PossiblyCurrent>) -> Result<Self, InitError> {
+    pub fn new(windowed_context: WindowedContext<glutin::PossiblyCurrent>) -> Self {
         let windowed_context = Rc::new(windowed_context);
         gl::load_with({
             let windowed_context = windowed_context.clone();
@@ -57,12 +55,12 @@ impl GraphicsContext {
         let screen_size = windowed_context.window().inner_size();
         let scale_factor = windowed_context.window().scale_factor();
 
-        Ok(Self {
+        Self {
             windowed_context,
             screen_size,
             scale_factor,
             can_debug,
-        })
+        }
     }
 
     pub fn init_debug(&mut self) {

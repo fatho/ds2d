@@ -1,5 +1,7 @@
 use std::time::Duration;
 
+pub (crate) mod context;
+
 use crate::Context;
 
 /// Time that has elapsed since the last frame.

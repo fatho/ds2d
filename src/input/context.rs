@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+use glutin::event::VirtualKeyCode;
 use glutin::event::MouseButton;
 
 #[derive(Debug)]
@@ -19,4 +20,10 @@ impl Default for MouseContext {
             scroll_y: 0.0,
         }
     }
+}
+
+#[derive(Debug, Default)]
+pub(crate) struct KeyboardContext {
+    pub pressed_keys: HashSet<VirtualKeyCode>,
+    pub unicode_text: String,
 }
