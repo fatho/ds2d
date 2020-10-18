@@ -3,7 +3,7 @@ use gl::types::{GLboolean, GLenum, GLint, GLuint};
 
 use crate::{CheckGl, Context};
 
-use super::{BackendError, BlendMode, GraphicsError, context::Program, context::UniformValue, context::VertexAttrib};
+use super::{BlendMode, BackendError, context::Program, context::UniformValue, context::VertexAttrib};
 
 // pub struct Decomposed {
 
@@ -19,7 +19,7 @@ pub struct RenderState {
 pub trait ShaderProgram {
     type Vertex: VertexData;
 
-    fn apply(&mut self, ctx: &mut Context) -> Result<(), GraphicsError>;
+    fn apply(&mut self, ctx: &mut Context) -> Result<(), BackendError>;
 }
 
 pub trait VertexData: Copy {
@@ -30,10 +30,11 @@ pub trait VertexData: Copy {
 pub struct BasicShader2D {
     program: Program,
     transform: ShaderParameter<Matrix3<f32>>,
+    texture: ShaderParameter<i32>,
 }
 
 impl BasicShader2D {
-    pub fn new(_ctx: &mut Context) -> Result<Self, GraphicsError> {
+    pub fn new(_ctx: &mut Context) -> Result<Self, BackendError> {
         // TODO: we should cache the individual shaders and only relink them
         // We probably don't want to cache the program object itself, because
         // that would mean that uniform values are also shared across instances.
@@ -43,6 +44,7 @@ impl BasicShader2D {
             program,
             // the identity matrix is the default matrix in the shader program.
             transform: ShaderParameter::new("Transform", cgmath::SquareMatrix::identity(), false),
+            texture: ShaderParameter::new("Texture0", 0, true),
         })
     }
 
@@ -54,6 +56,16 @@ impl BasicShader2D {
     /// The transform matrix used when the shader is next applied.
     pub fn param_transform_mut(&mut self) -> &mut ShaderParameter<Matrix3<f32>> {
         &mut self.transform
+    }
+
+    /// The texture that is used when the shader is next applied.
+    pub fn param_texture(&self) -> &ShaderParameter<i32> {
+        &self.texture
+    }
+
+    /// The texture that is used when the shader is next applied.
+    pub fn param_texture_mut(&mut self) -> &mut ShaderParameter<i32> {
+        &mut self.texture
     }
 
     // TODO: support multiple versions of GLSL
@@ -94,7 +106,7 @@ impl BasicShader2D {
 impl ShaderProgram for BasicShader2D {
     type Vertex = BasicVertex2D;
 
-    fn apply(&mut self, _ctx: &mut Context) -> Result<(), GraphicsError> {
+    fn apply(&mut self, _ctx: &mut Context) -> Result<(), BackendError> {
         // TODO: keep track of currently used program?
         Program::bind(&self.program)?;
         self.transform.set_uniform(&self.program)?;
@@ -149,7 +161,7 @@ impl<T: UniformValue + PartialEq> ShaderParameter<T> {
         &self.value
     }
 
-    fn set_uniform(&mut self, program: &Program) -> Result<(), GraphicsError> {
+    fn set_uniform(&mut self, program: &Program) -> Result<(), BackendError> {
         if self.dirty {
             program.set_uniform(&self.name, &self.value)?;
             self.dirty = false;

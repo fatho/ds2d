@@ -603,6 +603,9 @@ impl VertexAttrib {
     pub unsafe fn set_pointer(&self) -> Result<(), BackendError> {
         CheckGl!(gl::VertexAttribPointer(self.index, self.size, self.gl_type, self.normalized, self.stride, self.offset as _))
     }
+    pub unsafe fn enable(&self) -> Result<(), BackendError> {
+        CheckGl!(gl::EnableVertexAttribArray(self.index))
+    }
 }
 
 

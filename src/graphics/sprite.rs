@@ -2,11 +2,11 @@
 
 use cgmath::{Matrix3, Rad, Vector2};
 
-use super::{Color, Rect, RenderState, Texture2D, context::{BackendError, Buffer, Program, Texture, VertexArray}};
+use super::{Color, Rect, RenderState, Texture2D, context::{BackendError, Buffer, Program, Texture, VertexArray}, primitives::BasicShader2D, primitives::BasicVertex2D, primitives::ShaderProgram, primitives::VertexData};
 use crate::{Context, GameResult};
 
 pub struct Sprite {
-    program: Program,
+    program: BasicShader2D,
     /// Vertex buffer object
     #[allow(unused)]
     vbo: Buffer,
@@ -26,51 +26,10 @@ pub struct Sprite {
     // TODO: sampler options
 }
 
-#[repr(C)]
-#[derive(Debug, Clone, Copy)]
-struct SpriteVertex {
-    position: [f32; 2],
-    tex_coord: [f32; 2],
-}
-
-impl SpriteVertex {
-    const SIZE: i32 = std::mem::size_of::<SpriteVertex>() as i32;
-}
-
 impl Sprite {
-    const VERTEX_SHADER: &'static str = r"#version 330 core
-    layout (location = 0) in vec2 position;
-    layout (location = 1) in vec2 tex_coord_vert;
-
-    out vec2 tex_coord_frag;
-    out vec4 color_frag;
-
-    uniform mat3 model_view_projection = mat3(1.0);
-
-    void main()
-    {
-        vec3 transformed = model_view_projection * vec3(position, 1.0);
-        gl_Position = vec4(transformed.xy, 0.0, 1.0);
-
-        tex_coord_frag = tex_coord_vert;
-    }";
-
-    const FRAGMENT_SHADER: &'static str = r"#version 330 core
-    in vec2 tex_coord_frag;
-
-    out vec4 FragColor;
-
-    uniform sampler2D texture0;
-    uniform vec4 tint;
-
-    void main()
-    {
-        vec4 tex_color = texture(texture0, tex_coord_frag);
-        FragColor = tex_color * tint;
-    }";
 
     pub fn new(
-        _ctx: &mut Context,
+        ctx: &mut Context,
         texture: Texture2D,
         source: Rect<f32>,
         destination: Rect<f32>,
@@ -78,8 +37,7 @@ impl Sprite {
         rotation: Rad<f32>,
         tint: Color,
     ) -> Result<Sprite, BackendError> {
-        // TODO: cache/share programs across instances
-        let program = Program::from_source(Self::VERTEX_SHADER, Self::FRAGMENT_SHADER)?;
+        let program = BasicShader2D::new(ctx)?;
         let vbo = Buffer::new()?;
         let vao = VertexArray::new()?;
 
@@ -90,32 +48,33 @@ impl Sprite {
             let bottom_right = top_left + source.size();
 
             let vertices = &[
-                SpriteVertex {
+                BasicVertex2D {
                     position: [0.0, 0.0],
                     tex_coord: [top_left.x, top_left.y],
+                    color: tint.into(),
                 },
-                SpriteVertex {
+                BasicVertex2D {
                     position: [1.0, 0.0],
                     tex_coord: [bottom_right.x, top_left.y],
+                    color: tint.into(),
                 },
-                SpriteVertex {
+                BasicVertex2D {
                     position: [0.0, 1.0],
                     tex_coord: [top_left.x, bottom_right.y],
+                    color: tint.into(),
                 },
-                SpriteVertex {
+                BasicVertex2D {
                     position: [1.0, 1.0],
                     tex_coord: [bottom_right.x, bottom_right.y],
+                    color: tint.into(),
                 },
             ];
-            log::trace!("{:?}", vertices);
             Buffer::data(gl::ARRAY_BUFFER, vertices, gl::STATIC_DRAW)?;
 
-            // Position
-            gl::VertexAttribPointer(0, 2, gl::FLOAT, gl::FALSE, SpriteVertex::SIZE, 0 as _);
-            // Texture coordinate
-            gl::VertexAttribPointer(1, 2, gl::FLOAT, gl::FALSE, SpriteVertex::SIZE, 8 as _);
-            gl::EnableVertexAttribArray(0);
-            gl::EnableVertexAttribArray(1);
+            for attrib in BasicVertex2D::attributes() {
+                attrib.set_pointer()?;
+                attrib.enable()?;
+            }
         }
         // NOTE: The ARRAY_BUFFER has been remembered by the VAO as part of the
         // call to glVertexAttribPointer, so we can unbind it again.
@@ -135,17 +94,37 @@ impl Sprite {
         })
     }
 
+    /// The underlying texture of this sprite.
     pub fn texture(&self) -> &Texture2D {
         &self.texture
     }
 
-    // NOTE: split destination rect into position + size?
-    pub fn set_destination(&mut self, dest: Rect<f32>) {
-        self.destination = dest;
+    /// The tint color of this sprite that is multiplied with the texture color.
+    ///
+    /// # Note
+    ///
+    /// The tint is baked into the vertex buffer and cannot be changed after creating the sprite.
+    pub fn tint(&self) -> Color {
+        self.tint
+    }
+
+    /// The part of the texture that is used for rendering this sprite,
+    /// given in normalized UV coordinates.
+    ///
+    /// # Note
+    ///
+    /// The source rectangle is baked into the vertex buffer and cannot be changed after creating the sprite.
+    pub fn source(&self) -> Rect<f32> {
+        self.source
     }
 
     pub fn destination(&self) -> Rect<f32> {
         self.destination
+    }
+
+    // TODO: split destination rect into position + size?
+    pub fn set_destination(&mut self, dest: Rect<f32>) {
+        self.destination = dest;
     }
 
     pub fn rotation(&self) -> Rad<f32> {
@@ -164,18 +143,6 @@ impl Sprite {
         self.origin = origin
     }
 
-    pub fn tint(&self) -> Color {
-        self.tint
-    }
-
-    pub fn set_tint(&mut self, tint: Color) {
-        self.tint = tint
-    }
-
-    pub fn source(&self) -> Rect<f32> {
-        self.source
-    }
-
     pub fn local_transform(&self) -> Matrix3<f32> {
         let origin = super::transform::translate(- self.origin);
         let rotate = super::transform::rotate(self.rotation);
@@ -188,13 +155,10 @@ impl Sprite {
 impl super::Drawable for Sprite {
     fn draw(&mut self, ctx: &mut Context, mut state: RenderState) -> GameResult<()> {
         state.transform = state.transform * self.local_transform();
-
-        self.program.bind()?;
+        self.program.param_transform_mut().set(state.transform);
+        self.program.param_texture_mut().set(0);
+        self.program.apply(ctx)?;
         super::set_blend_mode(ctx, state.blend)?;
-        self.program
-            .set_uniform("model_view_projection", &state.transform)?;
-        self.program.set_uniform("texture0", 0i32)?;
-        self.program.set_uniform("tint", self.tint)?;
         self.vao.bind()?;
         unsafe {
             gl::ActiveTexture(gl::TEXTURE0);
