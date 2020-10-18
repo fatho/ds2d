@@ -62,14 +62,14 @@ impl GraphicsContext {
         });
 
         let version = unsafe { gl::GetString(gl::VERSION) };
-        let version = if version == std::ptr::null() {
+        let version = if version.is_null() {
             std::borrow::Cow::Borrowed("version unavailable")
         } else {
             unsafe { std::ffi::CStr::from_ptr(version as *const i8).to_string_lossy() }
         };
 
         let shader_version = unsafe { gl::GetString(gl::SHADING_LANGUAGE_VERSION) };
-        let shader_version = if shader_version == std::ptr::null() {
+        let shader_version = if shader_version.is_null() {
             std::borrow::Cow::Borrowed("version unavailable")
         } else {
             unsafe { std::ffi::CStr::from_ptr(shader_version as *const i8).to_string_lossy() }
@@ -82,7 +82,7 @@ impl GraphicsContext {
         let mut can_debug = false;
         for i in 0..num_extensions {
             let ext = unsafe { gl::GetStringi(gl::EXTENSIONS, i as u32) };
-            if ext != std::ptr::null() {
+            if ! ext.is_null() {
                 let ext = unsafe { std::ffi::CStr::from_ptr(ext as *const i8).to_string_lossy() };
                 if ext == "GL_KHR_debug" {
                     can_debug = true;
@@ -108,7 +108,7 @@ impl GraphicsContext {
             unsafe {
                 gl::Enable(gl::DEBUG_OUTPUT);
 
-                use gl::types::{GLchar, GLuint};
+                use gl::types::GLchar;
                 use std::ffi::c_void;
 
                 extern "system" fn callback(
@@ -165,7 +165,10 @@ impl GraphicsContext {
         self.pixel_projection = compute_pixel_projection(new_size);
     }
 
-    pub fn set_blend_mode(&mut self, blend_mode: Option<super::BlendMode>) -> Result<(), BackendError> {
+    pub fn set_blend_mode(
+        &mut self,
+        blend_mode: Option<super::BlendMode>,
+    ) -> Result<(), BackendError> {
         if self.blend_mode != blend_mode {
             if let Some(blend_mode) = blend_mode {
                 unsafe {
@@ -184,7 +187,9 @@ impl GraphicsContext {
                     ))?;
                 }
             } else if self.blend_mode.is_some() {
-                unsafe { CheckGl!(gl::Disable(gl::BLEND))?; }
+                unsafe {
+                    CheckGl!(gl::Disable(gl::BLEND))?;
+                }
             }
             self.blend_mode = blend_mode;
         }
@@ -487,7 +492,11 @@ impl Program {
         Program::new(&[vs, fs])
     }
 
-    pub fn set_uniform<T: UniformValue>(&self, uniform: &str, value: T) -> Result<(), BackendError> {
+    pub fn set_uniform<T: UniformValue>(
+        &self,
+        uniform: &str,
+        value: T,
+    ) -> Result<(), BackendError> {
         let info = self
             .uniforms
             .get(uniform)
@@ -536,7 +545,12 @@ impl UniformValue for Matrix3<f32> {
     }
 
     unsafe fn set_uniform(&self, location: i32) -> Result<(), BackendError> {
-        CheckGl!(gl::UniformMatrix3fv(location, 1, gl::FALSE, self as *const _ as *const f32))
+        CheckGl!(gl::UniformMatrix3fv(
+            location,
+            1,
+            gl::FALSE,
+            self as *const _ as *const f32
+        ))
     }
 }
 
@@ -611,13 +625,19 @@ pub struct VertexAttrib {
 
 impl VertexAttrib {
     pub unsafe fn set_pointer(&self) -> Result<(), BackendError> {
-        CheckGl!(gl::VertexAttribPointer(self.index, self.size, self.gl_type, self.normalized, self.stride, self.offset as _))
+        CheckGl!(gl::VertexAttribPointer(
+            self.index,
+            self.size,
+            self.gl_type,
+            self.normalized,
+            self.stride,
+            self.offset as _
+        ))
     }
     pub unsafe fn enable(&self) -> Result<(), BackendError> {
         CheckGl!(gl::EnableVertexAttribArray(self.index))
     }
 }
-
 
 #[derive(Debug)]
 pub struct Buffer {

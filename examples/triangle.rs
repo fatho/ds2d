@@ -1,4 +1,7 @@
-use ds2d::{Context, GameResult, graphics::{self, Color, primitives::BasicVertex2D}};
+use ds2d::{
+    graphics::{self, primitives::BasicVertex2D, Color},
+    Context, GameResult,
+};
 use log::error;
 
 pub struct HelloGame {
@@ -7,12 +10,6 @@ pub struct HelloGame {
 
 impl HelloGame {
     pub fn new(ctx: &mut Context) -> GameResult<HelloGame> {
-        // let tri = graphics::Mesh::new(ctx, &[
-        //     cgmath::Vector2::new(0.0, 0.5),
-        //     cgmath::Vector2::new(-0.75, 0.0),
-        //     cgmath::Vector2::new(0.5, 0.0),
-        //     cgmath::Vector2::new(0.0, -0.75),
-        // ], &[0, 1, 2, 1, 2, 3])?;
         let tri = graphics::Mesh::new(
             ctx,
             &[
@@ -20,7 +17,6 @@ impl HelloGame {
                 BasicVertex2D::with_position_color([100.0, 400.0], Color::RED),
                 BasicVertex2D::with_position_color([500.0, 400.0], Color::GREEN),
                 BasicVertex2D::with_position_color([400.0, 700.0], Color::BLUE),
-                //], &[0, 1, 2, 1, 2, 3])?;
             ],
             &[0, 2, 1, 1, 2, 3],
         )?;

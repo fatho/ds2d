@@ -1,8 +1,13 @@
 //! A generic 2D triangle mesh.
 
-use cgmath::Vector2;
-
-use super::{Color, RenderState, context::{BackendError, Buffer, Program, VertexArray}, primitives::BasicPipeline2D, primitives::BasicVertex2D, primitives::Pipeline, primitives::VertexData};
+use super::{
+    context::{BackendError, Buffer, Program, VertexArray},
+    primitives::BasicPipeline2D,
+    primitives::BasicVertex2D,
+    primitives::Pipeline,
+    primitives::VertexData,
+    RenderState,
+};
 use crate::{Context, GameResult};
 
 pub struct Mesh {

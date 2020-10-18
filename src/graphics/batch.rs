@@ -1,9 +1,11 @@
 //! Implements batched rendering of sprites.
 
-
 use cgmath::{Matrix3, Rad, Vector2};
 
-use super::{Color, GraphicsError, Rect, RenderState, Texture2D, context::{BackendError, Buffer, Program, Texture, VertexArray}};
+use super::{
+    context::{BackendError, Buffer, Program, Texture, VertexArray},
+    Color, GraphicsError, Rect, RenderState, Texture2D,
+};
 use crate::{Context, GameResult};
 
 pub struct SpriteBatch {
@@ -15,7 +17,6 @@ pub struct SpriteBatch {
     ebo: Buffer,
     vao: VertexArray,
 }
-
 
 impl SpriteBatch {
     /// Create a new sprite batch that can batch up to `max_sprites` at once.

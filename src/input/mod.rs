@@ -1,9 +1,9 @@
-pub (crate) mod context;
+pub(crate) mod context;
 
 /// Handle keyboard input
 pub mod keyboard {
-    use cgmath::Vector2;
     use crate::Context;
+    use cgmath::Vector2;
 
     pub type KeyCode = glutin::event::VirtualKeyCode;
 
@@ -31,7 +31,13 @@ pub mod keyboard {
 
     /// Emulate two analog axes with four keys (useful for movement with WSAD).
     /// The magnitude of the resulting vector is at most 1.
-    pub fn axis2d(ctx: &mut Context, x_neg: KeyCode, x_pos: KeyCode, y_neg: KeyCode, y_pos: KeyCode) -> Vector2<f32> {
+    pub fn axis2d(
+        ctx: &mut Context,
+        x_neg: KeyCode,
+        x_pos: KeyCode,
+        y_neg: KeyCode,
+        y_pos: KeyCode,
+    ) -> Vector2<f32> {
         use cgmath::InnerSpace;
 
         let x = axis1d(ctx, x_neg, x_pos);

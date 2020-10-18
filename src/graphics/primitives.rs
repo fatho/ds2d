@@ -2,9 +2,11 @@ use std::fmt::Debug;
 
 use cgmath::Matrix3;
 
-use crate::{Context};
+use crate::Context;
 
-use super::{BackendError, BlendMode, Color, context::Program, context::UniformValue, context::VertexAttrib};
+use super::{
+    context::Program, context::UniformValue, context::VertexAttrib, BackendError, BlendMode, Color,
+};
 
 // pub struct Decomposed {
 
@@ -14,7 +16,6 @@ use super::{BackendError, BlendMode, Color, context::Program, context::UniformVa
 pub struct RenderState {
     pub transform: Matrix3<f32>,
 }
-
 
 pub trait Pipeline {
     type Vertex: VertexData;
@@ -40,7 +41,8 @@ impl BasicPipeline2D {
         // TODO: we should cache the individual shaders and only relink them
         // We probably don't want to cache the program object itself, because
         // that would mean that uniform values are also shared across instances.
-        let program = Program::from_source(Self::VERTEX_SHADER_330_CORE, Self::FRAGMENT_SHADER_330_CORE)?;
+        let program =
+            Program::from_source(Self::VERTEX_SHADER_330_CORE, Self::FRAGMENT_SHADER_330_CORE)?;
 
         Ok(Self {
             program,
@@ -159,7 +161,10 @@ impl BasicVertex2D {
         Self::with_position_color(position, Color::WHITE)
     }
 
-    pub fn with_position_color<P: Into<[f32; 2]>, C: Into<[f32; 4]>>(position: P, color: C) -> Self {
+    pub fn with_position_color<P: Into<[f32; 2]>, C: Into<[f32; 4]>>(
+        position: P,
+        color: C,
+    ) -> Self {
         Self {
             position: position.into(),
             color: color.into(),
@@ -172,13 +177,33 @@ impl VertexData for BasicVertex2D {
     fn attributes() -> &'static [VertexAttrib] {
         const SIZE: i32 = std::mem::size_of::<BasicVertex2D>() as i32;
         &[
-            VertexAttrib { index: 0, size: 2, gl_type: gl::FLOAT, normalized: gl::FALSE, stride: SIZE, offset: 0 },
-            VertexAttrib { index: 1, size: 2, gl_type: gl::FLOAT, normalized: gl::FALSE, stride: SIZE, offset: 8 },
-            VertexAttrib { index: 2, size: 4, gl_type: gl::FLOAT, normalized: gl::FALSE, stride: SIZE, offset: 16 },
+            VertexAttrib {
+                index: 0,
+                size: 2,
+                gl_type: gl::FLOAT,
+                normalized: gl::FALSE,
+                stride: SIZE,
+                offset: 0,
+            },
+            VertexAttrib {
+                index: 1,
+                size: 2,
+                gl_type: gl::FLOAT,
+                normalized: gl::FALSE,
+                stride: SIZE,
+                offset: 8,
+            },
+            VertexAttrib {
+                index: 2,
+                size: 4,
+                gl_type: gl::FLOAT,
+                normalized: gl::FALSE,
+                stride: SIZE,
+                offset: 16,
+            },
         ]
     }
 }
-
 
 pub struct ShaderParameter<T> {
     name: String,
@@ -191,7 +216,7 @@ impl<T: UniformValue + PartialEq + Debug> ShaderParameter<T> {
         Self {
             name: name.into(),
             value: initial,
-            dirty
+            dirty,
         }
     }
 
@@ -204,7 +229,6 @@ impl<T: UniformValue + PartialEq + Debug> ShaderParameter<T> {
 
     fn set_uniform(&mut self, program: &Program) -> Result<(), BackendError> {
         if self.dirty {
-            log::trace!("setting uniform {} to {:?}", &self.name, &self.value);
             program.set_uniform(&self.name, &self.value)?;
             self.dirty = false;
         }

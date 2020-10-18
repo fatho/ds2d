@@ -2,7 +2,14 @@
 
 use cgmath::{Matrix3, Rad, Vector2};
 
-use super::{BlendMode, Color, Rect, RenderState, Texture2D, context::{BackendError, Buffer, Program, Texture, VertexArray}, primitives::BasicPipeline2D, primitives::BasicVertex2D, primitives::Pipeline, primitives::VertexData};
+use super::{
+    context::{BackendError, Buffer, Program, Texture, VertexArray},
+    primitives::BasicPipeline2D,
+    primitives::BasicVertex2D,
+    primitives::Pipeline,
+    primitives::VertexData,
+    BlendMode, Color, Rect, RenderState, Texture2D,
+};
 use crate::{Context, GameResult};
 
 pub struct Sprite {
@@ -13,13 +20,11 @@ pub struct Sprite {
     vao: VertexArray,
 
     // what to draw?
-
     texture: Texture2D,
     source: Rect<f32>,
     tint: Color,
 
     // where to draw it?
-
     destination: Rect<f32>,
     origin: Vector2<f32>,
     rotation: Rad<f32>,
@@ -27,7 +32,6 @@ pub struct Sprite {
 }
 
 impl Sprite {
-
     pub fn new(
         ctx: &mut Context,
         texture: Texture2D,
@@ -149,7 +153,7 @@ impl Sprite {
     }
 
     pub fn local_transform(&self) -> Matrix3<f32> {
-        let origin = super::transform::translate(- self.origin);
+        let origin = super::transform::translate(-self.origin);
         let rotate = super::transform::rotate(self.rotation);
         let scale = super::transform::scale(self.destination.size());
         let position = super::transform::translate(self.destination.position());
