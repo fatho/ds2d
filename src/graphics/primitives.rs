@@ -1,9 +1,10 @@
+use std::fmt::Debug;
+
 use cgmath::Matrix3;
-use gl::types::{GLboolean, GLenum, GLint, GLuint};
 
-use crate::{CheckGl, Context};
+use crate::{Context};
 
-use super::{BlendMode, BackendError, context::Program, context::UniformValue, context::VertexAttrib};
+use super::{BackendError, BlendMode, Color, context::Program, context::UniformValue, context::VertexAttrib};
 
 // pub struct Decomposed {
 
@@ -12,11 +13,10 @@ use super::{BlendMode, BackendError, context::Program, context::UniformValue, co
 #[derive(Debug, Copy, Clone)]
 pub struct RenderState {
     pub transform: Matrix3<f32>,
-    pub blend: Option<BlendMode>,
 }
 
 
-pub trait ShaderProgram {
+pub trait Pipeline {
     type Vertex: VertexData;
 
     fn apply(&mut self, ctx: &mut Context) -> Result<(), BackendError>;
@@ -26,14 +26,16 @@ pub trait VertexData: Copy {
     fn attributes() -> &'static [VertexAttrib];
 }
 
-/// A basic shader for 2D rendering that can be used in a wide variety of drawables.
-pub struct BasicShader2D {
+/// A basic pipeline for 2D rendering that can be used in a wide variety of drawables.
+pub struct BasicPipeline2D {
     program: Program,
     transform: ShaderParameter<Matrix3<f32>>,
     texture: ShaderParameter<i32>,
+    use_texture: ShaderParameter<bool>,
+    blend_mode: Option<BlendMode>,
 }
 
-impl BasicShader2D {
+impl BasicPipeline2D {
     pub fn new(_ctx: &mut Context) -> Result<Self, BackendError> {
         // TODO: we should cache the individual shaders and only relink them
         // We probably don't want to cache the program object itself, because
@@ -45,27 +47,48 @@ impl BasicShader2D {
             // the identity matrix is the default matrix in the shader program.
             transform: ShaderParameter::new("Transform", cgmath::SquareMatrix::identity(), false),
             texture: ShaderParameter::new("Texture0", 0, true),
+            use_texture: ShaderParameter::new("UseTexture0", false, false),
+            blend_mode: None,
         })
     }
 
-    /// The transform matrix used when the shader is next applied.
-    pub fn param_transform(&self) -> &ShaderParameter<Matrix3<f32>> {
-        &self.transform
+    /// The blend mode used when the pipeline is next applied.
+    pub fn get_blend_mode(&self) -> &Option<BlendMode> {
+        &self.blend_mode
     }
 
-    /// The transform matrix used when the shader is next applied.
-    pub fn param_transform_mut(&mut self) -> &mut ShaderParameter<Matrix3<f32>> {
-        &mut self.transform
+    /// The blend mode used when the pipeline is next applied.
+    pub fn set_blend_mode(&mut self, new: Option<BlendMode>) {
+        self.blend_mode = new
     }
 
-    /// The texture that is used when the shader is next applied.
-    pub fn param_texture(&self) -> &ShaderParameter<i32> {
-        &self.texture
+    /// The transform matrix used when the pipeline is next applied.
+    pub fn get_transform(&self) -> &Matrix3<f32> {
+        &self.transform.value
     }
 
-    /// The texture that is used when the shader is next applied.
-    pub fn param_texture_mut(&mut self) -> &mut ShaderParameter<i32> {
-        &mut self.texture
+    /// The transform matrix used when the pipeline is next applied.
+    pub fn set_transform(&mut self, new: Matrix3<f32>) {
+        self.transform.set(new)
+    }
+
+    /// The texture used when the pipeline is next applied.
+    pub fn get_texture(&self) -> Option<i32> {
+        if self.use_texture.value {
+            Some(self.texture.value)
+        } else {
+            None
+        }
+    }
+
+    /// The texture used when the pipeline is next applied.
+    pub fn set_texture(&mut self, new: Option<i32>) {
+        if let Some(tex) = new {
+            self.texture.set(tex);
+            self.use_texture.set(true);
+        } else {
+            self.use_texture.set(false);
+        }
     }
 
     // TODO: support multiple versions of GLSL
@@ -95,21 +118,29 @@ impl BasicShader2D {
     out vec4 FragColor;
 
     uniform sampler2D Texture0;
+    uniform bool UseTexture0 = false;
 
     void main()
     {
-        vec4 tex_color = texture(Texture0, Vert_Frag_TexCoord);
-        FragColor = tex_color * Vert_Frag_Color;
+        if(UseTexture0) {
+            vec4 tex_color = texture(Texture0, Vert_Frag_TexCoord);
+            FragColor = tex_color * Vert_Frag_Color;
+        } else {
+            FragColor = Vert_Frag_Color;
+        }
     }";
 }
 
-impl ShaderProgram for BasicShader2D {
+impl Pipeline for BasicPipeline2D {
     type Vertex = BasicVertex2D;
 
-    fn apply(&mut self, _ctx: &mut Context) -> Result<(), BackendError> {
+    fn apply(&mut self, ctx: &mut Context) -> Result<(), BackendError> {
         // TODO: keep track of currently used program?
         Program::bind(&self.program)?;
         self.transform.set_uniform(&self.program)?;
+        self.texture.set_uniform(&self.program)?;
+        self.use_texture.set_uniform(&self.program)?;
+        ctx.graphics.set_blend_mode(self.blend_mode)?;
         Ok(())
     }
 }
@@ -121,6 +152,20 @@ pub struct BasicVertex2D {
     pub position: [f32; 2],
     pub tex_coord: [f32; 2],
     pub color: [f32; 4],
+}
+
+impl BasicVertex2D {
+    pub fn with_position<P: Into<[f32; 2]>>(position: P) -> Self {
+        Self::with_position_color(position, Color::WHITE)
+    }
+
+    pub fn with_position_color<P: Into<[f32; 2]>, C: Into<[f32; 4]>>(position: P, color: C) -> Self {
+        Self {
+            position: position.into(),
+            color: color.into(),
+            tex_coord: [0.0; 2],
+        }
+    }
 }
 
 impl VertexData for BasicVertex2D {
@@ -141,7 +186,7 @@ pub struct ShaderParameter<T> {
     dirty: bool,
 }
 
-impl<T: UniformValue + PartialEq> ShaderParameter<T> {
+impl<T: UniformValue + PartialEq + Debug> ShaderParameter<T> {
     fn new<S: Into<String>>(name: S, initial: T, dirty: bool) -> Self {
         Self {
             name: name.into(),
@@ -157,12 +202,9 @@ impl<T: UniformValue + PartialEq> ShaderParameter<T> {
         }
     }
 
-    pub fn get(&self) -> &T {
-        &self.value
-    }
-
     fn set_uniform(&mut self, program: &Program) -> Result<(), BackendError> {
         if self.dirty {
+            log::trace!("setting uniform {} to {:?}", &self.name, &self.value);
             program.set_uniform(&self.name, &self.value)?;
             self.dirty = false;
         }

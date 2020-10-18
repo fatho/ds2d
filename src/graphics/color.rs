@@ -15,6 +15,9 @@ pub struct Color {
 impl Color {
     pub const WHITE: Color = Color::from_rgba(1.0, 1.0, 1.0, 1.0);
     pub const BLACK: Color = Color::from_rgba(0.0, 0.0, 0.0, 1.0);
+    pub const RED: Color = Color::from_rgba(1.0, 0.0, 0.0, 1.0);
+    pub const GREEN: Color = Color::from_rgba(0.0, 1.0, 0.0, 1.0);
+    pub const BLUE: Color = Color::from_rgba(0.0, 0.0, 1.0, 1.0);
     pub const CORNFLOWER_BLUE: Color =
         Color::from_rgba(100.0 / 255.0, 149.0 / 255.0, 237.0 / 255.0, 1.0);
     pub const MAGENTA: Color = Color::from_rgba(1.0, 0.0, 1.0, 1.0);

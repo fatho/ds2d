@@ -581,6 +581,16 @@ impl<T: UniformValue> UniformValue for &T {
     }
 }
 
+impl UniformValue for bool {
+    fn is_allowed_type(&self, gl_type: GLenum) -> bool {
+        gl_type == gl::BOOL
+    }
+
+    unsafe fn set_uniform(&self, location: i32) -> Result<(), BackendError> {
+        CheckGl!(gl::Uniform1i(location, if *self { 1 } else { 0 }))
+    }
+}
+
 /// Information about a uniform in a shader.
 #[derive(Debug)]
 pub struct UniformInfo {

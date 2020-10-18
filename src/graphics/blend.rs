@@ -22,7 +22,7 @@ impl BlendMode {
         }
     }
 
-    pub const fn alpha_blend() -> Self {
+    pub const fn alpha() -> Self {
         Self {
             func_rgb: BlendFunc::Add,
             func_alpha: BlendFunc::Add,
@@ -58,7 +58,7 @@ impl BlendMode {
 
 impl Default for BlendMode {
     fn default() -> Self {
-        BlendMode::alpha_blend()
+        BlendMode::alpha()
     }
 }
 

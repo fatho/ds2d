@@ -2,11 +2,11 @@
 
 use cgmath::Vector2;
 
-use super::{RenderState, context::{BackendError, Buffer, Program, VertexArray}};
+use super::{Color, RenderState, context::{BackendError, Buffer, Program, VertexArray}, primitives::BasicPipeline2D, primitives::BasicVertex2D, primitives::Pipeline, primitives::VertexData};
 use crate::{Context, GameResult};
 
 pub struct Mesh {
-    program: Program,
+    pipeline: BasicPipeline2D,
     #[allow(unused)]
     /// Vertex buffer object
     vbo: Buffer,
@@ -19,28 +19,9 @@ pub struct Mesh {
 }
 
 impl Mesh {
-    const VERTEX_SHADER: &'static str = r"#version 330 core
-    layout (location = 0) in vec2 position;
-
-    uniform mat3 model_view_projection = mat3(1.0);
-
-    void main()
-    {
-        vec3 transformed = model_view_projection * vec3(position, 1.0);
-        gl_Position = vec4(transformed.xy, 0.0, 1.0);
-    }";
-
-    const FRAGMENT_SHADER: &'static str = r"#version 330 core
-    out vec4 FragColor;
-
-    void main()
-    {
-        FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);
-    }";
-
     pub fn new(
-        _ctx: &mut Context,
-        vertices: &[Vector2<f32>],
+        ctx: &mut Context,
+        vertices: &[BasicVertex2D],
         indices: &[u32],
     ) -> Result<Mesh, BackendError> {
         if vertices.len() > std::u32::MAX as usize {
@@ -50,8 +31,7 @@ impl Mesh {
             return Err(BackendError::TooLarge);
         }
 
-        // TODO: cache/share programs across instances
-        let program = Program::from_source(Self::VERTEX_SHADER, Self::FRAGMENT_SHADER)?;
+        let pipeline = BasicPipeline2D::new(ctx)?;
         let vbo = Buffer::new()?;
         let ebo = Buffer::new()?;
         let vao = VertexArray::new()?;
@@ -67,15 +47,10 @@ impl Mesh {
             Buffer::data(gl::ARRAY_BUFFER, vertices, gl::STATIC_DRAW)?;
             Buffer::data(gl::ELEMENT_ARRAY_BUFFER, indices, gl::STATIC_DRAW)?;
             // Safe because it corresponds to the layout of our buffer above
-            gl::VertexAttribPointer(
-                0,
-                2,
-                gl::FLOAT,
-                gl::FALSE,
-                std::mem::size_of::<cgmath::Vector2<f32>>() as i32,
-                0 as _,
-            );
-            gl::EnableVertexAttribArray(0);
+            for attrib in BasicVertex2D::attributes() {
+                attrib.set_pointer()?;
+                attrib.enable()?;
+            }
         }
         // NOTE: The ARRAY_BUFFER has been remembered by the VAO as part of the
         // call to glVertexAttribPointer, so we can unbind it again.
@@ -83,7 +58,7 @@ impl Mesh {
         VertexArray::unbind()?;
 
         Ok(Mesh {
-            program,
+            pipeline,
             vbo,
             ebo,
             vao,
@@ -94,9 +69,8 @@ impl Mesh {
 
 impl super::Drawable for Mesh {
     fn draw(&mut self, ctx: &mut Context, state: RenderState) -> GameResult<()> {
-        self.program.bind()?;
-        super::set_blend_mode(ctx, state.blend)?;
-        self.program.set_uniform("model_view_projection", &state.transform)?;
+        self.pipeline.set_transform(state.transform);
+        self.pipeline.apply(ctx)?;
         self.vao.bind()?;
         unsafe {
             gl::DrawElements(gl::TRIANGLES, self.num_elements, gl::UNSIGNED_INT, 0 as _);

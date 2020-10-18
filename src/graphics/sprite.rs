@@ -2,11 +2,11 @@
 
 use cgmath::{Matrix3, Rad, Vector2};
 
-use super::{Color, Rect, RenderState, Texture2D, context::{BackendError, Buffer, Program, Texture, VertexArray}, primitives::BasicShader2D, primitives::BasicVertex2D, primitives::ShaderProgram, primitives::VertexData};
+use super::{BlendMode, Color, Rect, RenderState, Texture2D, context::{BackendError, Buffer, Program, Texture, VertexArray}, primitives::BasicPipeline2D, primitives::BasicVertex2D, primitives::Pipeline, primitives::VertexData};
 use crate::{Context, GameResult};
 
 pub struct Sprite {
-    program: BasicShader2D,
+    pipeline: BasicPipeline2D,
     /// Vertex buffer object
     #[allow(unused)]
     vbo: Buffer,
@@ -37,7 +37,12 @@ impl Sprite {
         rotation: Rad<f32>,
         tint: Color,
     ) -> Result<Sprite, BackendError> {
-        let program = BasicShader2D::new(ctx)?;
+        let mut pipeline = BasicPipeline2D::new(ctx)?;
+        // Render sprites with alpha blending by default
+        pipeline.set_blend_mode(Some(BlendMode::alpha()));
+        // Always use the first texture unit
+        pipeline.set_texture(Some(0));
+
         let vbo = Buffer::new()?;
         let vao = VertexArray::new()?;
 
@@ -82,7 +87,7 @@ impl Sprite {
         VertexArray::unbind()?;
 
         Ok(Sprite {
-            program,
+            pipeline,
             vbo,
             vao,
             texture,
@@ -155,10 +160,8 @@ impl Sprite {
 impl super::Drawable for Sprite {
     fn draw(&mut self, ctx: &mut Context, mut state: RenderState) -> GameResult<()> {
         state.transform = state.transform * self.local_transform();
-        self.program.param_transform_mut().set(state.transform);
-        self.program.param_texture_mut().set(0);
-        self.program.apply(ctx)?;
-        super::set_blend_mode(ctx, state.blend)?;
+        self.pipeline.set_transform(state.transform);
+        self.pipeline.apply(ctx)?;
         self.vao.bind()?;
         unsafe {
             gl::ActiveTexture(gl::TEXTURE0);

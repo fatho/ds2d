@@ -15,10 +15,11 @@ mod sprite;
 pub use sprite::Sprite;
 mod blend;
 pub use blend::BlendMode;
-mod primitives;
-pub use primitives::RenderState;
 mod batch;
 pub use batch::SpriteBatch;
+
+pub mod primitives;
+pub use primitives::RenderState;
 
 pub(crate) mod context;
 
@@ -35,8 +36,6 @@ pub trait Drawable {
 pub fn draw<T: Drawable>(ctx: &mut Context, drawable: &mut T) -> GameResult<()> {
     let initial_state = RenderState {
         transform: ctx.graphics.pixel_projection,
-        // Default to alpha blending, that's the most sensible choice for 2D
-        blend: Some(BlendMode::alpha_blend()),
     };
     drawable.draw(ctx, initial_state)
 }
