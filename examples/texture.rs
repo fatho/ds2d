@@ -37,9 +37,11 @@ impl ds2d::Game for HelloGame {
         let update_rate = 60.0;
         while timer::run_fixed_timestep(ctx, update_rate, 10) {
             let delta = v * pixel_per_second / update_rate as f32;
+            let delta_angle = v.x / update_rate as f32;
             let mut dest = self.sprite.destination();
             dest.set_position(dest.position() + delta);
             self.sprite.set_destination(dest);
+            self.sprite.set_rotation(self.sprite.rotation() + Rad(delta_angle));
         }
         Ok(())
     }

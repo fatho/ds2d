@@ -17,6 +17,8 @@ mod blend;
 pub use blend::BlendMode;
 mod primitives;
 pub use primitives::RenderState;
+mod batch;
+pub use batch::SpriteBatch;
 
 pub(crate) mod context;
 

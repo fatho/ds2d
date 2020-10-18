@@ -96,7 +96,7 @@ impl super::Drawable for Mesh {
     fn draw(&mut self, ctx: &mut Context, state: RenderState) -> GameResult<()> {
         self.program.bind()?;
         super::set_blend_mode(ctx, state.blend)?;
-        self.program.set_uniform_mat3("model_view_projection", &state.transform)?;
+        self.program.set_uniform("model_view_projection", &state.transform)?;
         self.vao.bind()?;
         unsafe {
             gl::DrawElements(gl::TRIANGLES, self.num_elements, gl::UNSIGNED_INT, 0 as _);

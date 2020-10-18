@@ -2,9 +2,11 @@
 //! A lot of this assumes the presence of the global and all-encompassing GL context.
 
 use cgmath::{Matrix3, Vector2, Vector4};
-use gl::types::{GLenum, GLsizei};
+use gl::types::{GLboolean, GLenum, GLint, GLsizei, GLuint};
 use glutin::{dpi::PhysicalSize, WindowedContext};
 use std::{collections::HashMap, fmt::Display, rc::Rc};
+
+use super::Color;
 
 #[derive(Debug)]
 pub(crate) struct GraphicsContext {
@@ -209,7 +211,6 @@ pub enum BackendError {
     /// Tried to access a uniform value of the wrong type.
     UniformType {
         uniform: String,
-        access_type: GLenum,
         uniform_type: GLenum,
     },
     /// A buffer, texture, etc. grew too big
@@ -252,12 +253,11 @@ impl Display for BackendError {
             BackendError::NoSuchUniform { uniform } => write!(f, "No such uniform: {}", uniform),
             BackendError::UniformType {
                 uniform,
-                access_type,
                 uniform_type,
             } => write!(
                 f,
-                "Tried to acccess uniform {} as {}, but it is {}",
-                uniform, access_type, uniform_type
+                "Invalid type accessing uniform {} of type {}",
+                uniform, uniform_type
             ),
             BackendError::TooLarge => write!(f, "Object too large"),
             BackendError::InvalidSize => write!(f, "Client buffer size doesn't match"),
@@ -487,70 +487,21 @@ impl Program {
         Program::new(&[vs, fs])
     }
 
-    fn get_typed_uniform(
-        &self,
-        uniform: &str,
-        expected_type: GLenum,
-    ) -> Result<&UniformInfo, BackendError> {
+    pub fn set_uniform<T: UniformValue>(&self, uniform: &str, value: T) -> Result<(), BackendError> {
         let info = self
             .uniforms
             .get(uniform)
             .ok_or_else(|| BackendError::NoSuchUniform {
                 uniform: uniform.to_owned(),
             })?;
-        if info.gl_type != expected_type {
-            return Err(BackendError::UniformType {
+        if value.is_allowed_type(info.gl_type) {
+            unsafe { value.set_uniform(info.location) }
+        } else {
+            Err(BackendError::UniformType {
                 uniform: uniform.to_owned(),
-                access_type: expected_type,
                 uniform_type: info.gl_type,
-            });
+            })
         }
-        Ok(info)
-    }
-
-    pub fn set_uniform_mat3(
-        &self,
-        uniform: &str,
-        value: &Matrix3<f32>,
-    ) -> Result<(), BackendError> {
-        let info = self.get_typed_uniform(uniform, gl::FLOAT_MAT3)?;
-        unsafe {
-            gl::UniformMatrix3fv(info.location, 1, gl::FALSE, value as *const _ as *const f32);
-        }
-        Ok(())
-    }
-
-    pub fn set_uniform_vec4(
-        &self,
-        uniform: &str,
-        value: Vector4<f32>,
-    ) -> Result<(), BackendError> {
-        let info = self.get_typed_uniform(uniform, gl::FLOAT_VEC4)?;
-        unsafe {
-            gl::Uniform4f(info.location, value.x, value.y, value.z, value.w);
-        }
-        Ok(())
-    }
-
-    fn set_uniform_int_ish(
-        &self,
-        uniform: &str,
-        value: i32,
-        gl_type: GLenum,
-    ) -> Result<(), BackendError> {
-        let info = self.get_typed_uniform(uniform, gl_type)?;
-        unsafe {
-            gl::Uniform1i(info.location, value);
-        }
-        Ok(())
-    }
-
-    pub fn set_uniform_int(&self, uniform: &str, value: i32) -> Result<(), BackendError> {
-        self.set_uniform_int_ish(uniform, value, gl::INT)
-    }
-
-    pub fn set_uniform_sampler2d(&self, uniform: &str, value: i32) -> Result<(), BackendError> {
-        self.set_uniform_int_ish(uniform, value, gl::SAMPLER_2D)
     }
 
     pub fn bind(&self) -> Result<(), BackendError> {
@@ -562,14 +513,6 @@ impl Program {
     }
 }
 
-/// Information about a uniform in a shader.
-#[derive(Debug)]
-pub struct UniformInfo {
-    pub gl_type: GLenum,
-    pub size: i32,
-    pub location: i32,
-}
-
 impl Drop for Program {
     fn drop(&mut self) {
         // TODO: how to make sure this happens in a safe way?
@@ -579,6 +522,89 @@ impl Drop for Program {
         }
     }
 }
+
+pub trait UniformValue {
+    /// Return whether this value can be assigned to a uniform of the given type.
+    fn is_allowed_type(&self, gl_type: GLenum) -> bool;
+    /// Assign this value to the uniform at the given location.
+    unsafe fn set_uniform(&self, location: i32) -> Result<(), BackendError>;
+}
+
+impl UniformValue for Matrix3<f32> {
+    fn is_allowed_type(&self, gl_type: GLenum) -> bool {
+        gl_type == gl::FLOAT_MAT3
+    }
+
+    unsafe fn set_uniform(&self, location: i32) -> Result<(), BackendError> {
+        CheckGl!(gl::UniformMatrix3fv(location, 1, gl::FALSE, self as *const _ as *const f32))
+    }
+}
+
+impl UniformValue for Vector4<f32> {
+    fn is_allowed_type(&self, gl_type: GLenum) -> bool {
+        gl_type == gl::FLOAT_VEC4
+    }
+
+    unsafe fn set_uniform(&self, location: i32) -> Result<(), BackendError> {
+        CheckGl!(gl::Uniform4f(location, self.x, self.y, self.z, self.w))
+    }
+}
+
+impl UniformValue for Color {
+    fn is_allowed_type(&self, gl_type: GLenum) -> bool {
+        gl_type == gl::FLOAT_VEC4
+    }
+
+    unsafe fn set_uniform(&self, location: i32) -> Result<(), BackendError> {
+        CheckGl!(gl::Uniform4f(location, self.r, self.g, self.b, self.a))
+    }
+}
+
+impl UniformValue for i32 {
+    fn is_allowed_type(&self, gl_type: GLenum) -> bool {
+        // TODO: incomplete list of i32-ish uniforms
+        gl_type == gl::INT || gl_type == gl::SAMPLER_2D
+    }
+
+    unsafe fn set_uniform(&self, location: i32) -> Result<(), BackendError> {
+        CheckGl!(gl::Uniform1i(location, *self))
+    }
+}
+
+impl<T: UniformValue> UniformValue for &T {
+    fn is_allowed_type(&self, gl_type: GLenum) -> bool {
+        (*self).is_allowed_type(gl_type)
+    }
+
+    unsafe fn set_uniform(&self, location: i32) -> Result<(), BackendError> {
+        (*self).set_uniform(location)
+    }
+}
+
+/// Information about a uniform in a shader.
+#[derive(Debug)]
+pub struct UniformInfo {
+    pub gl_type: GLenum,
+    pub size: i32,
+    pub location: i32,
+}
+
+/// Definition of a vertex attribute stored inside a C struct.
+pub struct VertexAttrib {
+    pub index: GLuint,
+    pub size: GLint,
+    pub gl_type: GLenum,
+    pub normalized: GLboolean,
+    pub stride: i32,
+    pub offset: usize,
+}
+
+impl VertexAttrib {
+    pub unsafe fn set_pointer(&self) -> Result<(), BackendError> {
+        CheckGl!(gl::VertexAttribPointer(self.index, self.size, self.gl_type, self.normalized, self.stride, self.offset as _))
+    }
+}
+
 
 #[derive(Debug)]
 pub struct Buffer {

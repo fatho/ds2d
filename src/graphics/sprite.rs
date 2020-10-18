@@ -192,9 +192,9 @@ impl super::Drawable for Sprite {
         self.program.bind()?;
         super::set_blend_mode(ctx, state.blend)?;
         self.program
-            .set_uniform_mat3("model_view_projection", &state.transform)?;
-        self.program.set_uniform_sampler2d("texture0", 0)?;
-        self.program.set_uniform_vec4("tint", self.tint.into())?;
+            .set_uniform("model_view_projection", &state.transform)?;
+        self.program.set_uniform("texture0", 0i32)?;
+        self.program.set_uniform("tint", self.tint)?;
         self.vao.bind()?;
         unsafe {
             gl::ActiveTexture(gl::TEXTURE0);
