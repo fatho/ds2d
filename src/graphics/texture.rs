@@ -31,7 +31,6 @@ impl Texture2D {
         // TODO: add support for other formats?
         log::trace!("Loading image {}", filename.as_ref().display());
         let image = image::open(filename)?.into_rgba();
-
         Self::from_image(ctx, &image)
     }
 

@@ -161,24 +161,6 @@ impl GraphicsContext {
         unsafe { gl::Viewport(0, 0, new_size.width as i32, new_size.height as i32) };
         self.screen_size = new_size;
         self.pixel_projection = compute_pixel_projection(new_size);
-
-        log::trace!(
-            "Top left: {:?}",
-            self.pixel_projection * Vector2::new(0.0, 0.0).extend(1.0)
-        );
-        log::trace!(
-            "Top right: {:?}",
-            self.pixel_projection * Vector2::new(new_size.width as f32, 0.0).extend(1.0)
-        );
-        log::trace!(
-            "Bottom left: {:?}",
-            self.pixel_projection * Vector2::new(0.0, new_size.height as f32).extend(1.0)
-        );
-        log::trace!(
-            "Bottom right: {:?}",
-            self.pixel_projection
-                * Vector2::new(new_size.width as f32, new_size.height as f32).extend(1.0)
-        );
     }
 
     pub fn set_blend_mode(&mut self, blend_mode: Option<super::BlendMode>) -> Result<(), BackendError> {
@@ -186,7 +168,7 @@ impl GraphicsContext {
             if let Some(blend_mode) = blend_mode {
                 unsafe {
                     if self.blend_mode.is_none() {
-                        unsafe { CheckGl!(gl::Enable(gl::BLEND))?; }
+                        CheckGl!(gl::Enable(gl::BLEND))?;
                     }
                     CheckGl!(gl::BlendEquationSeparate(
                         blend_mode.func_rgb.to_gl(),

@@ -1,6 +1,6 @@
 //! A generic 2D triangle mesh.
 
-use cgmath::{Matrix3, Vector2};
+use cgmath::{Matrix3, Rad, Vector2};
 
 use super::{Color, Rect, RenderState, Texture2D, context::{BackendError, Buffer, Program, Texture, VertexArray}};
 use crate::{Context, GameResult};
@@ -8,15 +8,22 @@ use crate::{Context, GameResult};
 pub struct Sprite {
     program: Program,
     /// Vertex buffer object
+    #[allow(unused)]
     vbo: Buffer,
     vao: VertexArray,
 
-    position: Vector2<f32>,
+    // what to draw?
+
     texture: Texture2D,
+    source: Rect<f32>,
     tint: Color,
-    // TODO: source rectangle
+
+    // where to draw it?
+
+    destination: Rect<f32>,
+    origin: Vector2<f32>,
+    rotation: Rad<f32>,
     // TODO: sampler options
-    // TODO: blend options
 }
 
 #[repr(C)]
@@ -65,7 +72,10 @@ impl Sprite {
     pub fn new(
         _ctx: &mut Context,
         texture: Texture2D,
-        position: Vector2<f32>,
+        source: Rect<f32>,
+        destination: Rect<f32>,
+        origin: Vector2<f32>,
+        rotation: Rad<f32>,
         tint: Color,
     ) -> Result<Sprite, BackendError> {
         // TODO: cache/share programs across instances
@@ -76,27 +86,28 @@ impl Sprite {
         VertexArray::bind(&vao)?;
         Buffer::bind(gl::ARRAY_BUFFER, &vbo)?;
         unsafe {
-            let right = Vector2::new(texture.width() as f32, 0.0);
-            let down = Vector2::new(0.0, texture.height() as f32);
+            let top_left = source.position();
+            let bottom_right = top_left + source.size();
 
             let vertices = &[
                 SpriteVertex {
                     position: [0.0, 0.0],
-                    tex_coord: [0.0, 0.0],
+                    tex_coord: [top_left.x, top_left.y],
                 },
                 SpriteVertex {
-                    position: right.into(),
-                    tex_coord: [1.0, 0.0],
+                    position: [1.0, 0.0],
+                    tex_coord: [bottom_right.x, top_left.y],
                 },
                 SpriteVertex {
-                    position: down.into(),
-                    tex_coord: [0.0, 1.0],
+                    position: [0.0, 1.0],
+                    tex_coord: [top_left.x, bottom_right.y],
                 },
                 SpriteVertex {
-                    position: (right + down).into(),
-                    tex_coord: [1.0, 1.0],
+                    position: [1.0, 1.0],
+                    tex_coord: [bottom_right.x, bottom_right.y],
                 },
             ];
+            log::trace!("{:?}", vertices);
             Buffer::data(gl::ARRAY_BUFFER, vertices, gl::STATIC_DRAW)?;
 
             // Position
@@ -116,21 +127,61 @@ impl Sprite {
             vbo,
             vao,
             texture,
-            position,
+            source,
+            destination,
             tint,
+            origin,
+            rotation,
         })
     }
 
-    pub fn set_position(&mut self, new_pos: Vector2<f32>) {
-        self.position = new_pos;
+    pub fn texture(&self) -> &Texture2D {
+        &self.texture
     }
 
-    pub fn position(&self) -> Vector2<f32> {
-        self.position
+    // NOTE: split destination rect into position + size?
+    pub fn set_destination(&mut self, dest: Rect<f32>) {
+        self.destination = dest;
+    }
+
+    pub fn destination(&self) -> Rect<f32> {
+        self.destination
+    }
+
+    pub fn rotation(&self) -> Rad<f32> {
+        self.rotation
+    }
+
+    pub fn set_rotation(&mut self, angle: Rad<f32>) {
+        self.rotation = angle
+    }
+
+    pub fn origin(&self) -> Vector2<f32> {
+        self.origin
+    }
+
+    pub fn set_origin(&mut self, origin: Vector2<f32>) {
+        self.origin = origin
+    }
+
+    pub fn tint(&self) -> Color {
+        self.tint
+    }
+
+    pub fn set_tint(&mut self, tint: Color) {
+        self.tint = tint
+    }
+
+    pub fn source(&self) -> Rect<f32> {
+        self.source
     }
 
     pub fn local_transform(&self) -> Matrix3<f32> {
-        super::transform::translate(self.position)
+        let origin = super::transform::translate(- self.origin);
+        let rotate = super::transform::rotate(self.rotation);
+        let scale = super::transform::scale(self.destination.size());
+        let position = super::transform::translate(self.destination.position());
+        position * scale * rotate * origin
     }
 }
 

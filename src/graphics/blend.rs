@@ -1,9 +1,5 @@
 use gl::types::GLenum;
 
-use crate::CheckGl;
-
-use super::BackendError;
-
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct BlendMode {
     pub func_rgb: BlendFunc,
