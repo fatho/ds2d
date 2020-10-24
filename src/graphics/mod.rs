@@ -17,8 +17,8 @@ mod blend;
 pub use blend::BlendMode;
 mod batch;
 pub use batch::{BatchRender, Quad, QuadBuilder};
-mod text;
-pub use text::{Font, RasterizedText, Rasterizer, Text};
+
+pub mod text;
 
 pub mod primitives;
 pub use primitives::RenderState;

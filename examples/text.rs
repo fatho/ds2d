@@ -1,19 +1,19 @@
 use cgmath::Vector2;
 use ds2d::{
-    graphics::{self, Color, Text},
+    graphics::{self, Color},
     Context, GameResult,
 };
 use log::error;
 
 pub struct HelloGame {
-    rasterizer: graphics::Rasterizer,
-    font: graphics::Font,
+    rasterizer: graphics::text::Rasterizer,
+    font: graphics::text::Font,
 }
 
 impl HelloGame {
     pub fn new(ctx: &mut Context) -> GameResult<Self> {
         let font_data: Vec<_> = include_bytes!("RobotoSlab-Regular.ttf").as_ref().to_owned();
-        let mut rasterizer = graphics::Rasterizer::new(ctx)?;
+        let mut rasterizer = graphics::text::Rasterizer::new(ctx)?;
         let font = rasterizer.create_font(font_data)?;
         Ok(Self { rasterizer, font })
     }
@@ -23,12 +23,29 @@ impl ds2d::Game for HelloGame {
     fn draw(&mut self, ctx: &mut ds2d::Context) -> GameResult<()> {
         graphics::clear(ctx, Color::CORNFLOWER_BLUE);
 
-        let mut text = Text::new();
+        let font_scale = graphics::scale_factor(ctx) as f32;
+
+        let style1 = graphics::text::Style {
+            font: self.font.clone(),
+            size: 20.0 * font_scale,
+            color: Color::WHITE,
+        };
+        let style2 = graphics::text::Style {
+            font: self.font.clone(),
+            size: 30.0 * font_scale,
+            color: Color::from_rgba(1.0, 1.0, 0.0, 1.0),
+        };
+
+        let mut text = graphics::text::Text::new();
         text.add(
-            &self.font,
-            20.0 * graphics::scale_factor(ctx) as f32,
+            &style1,
             Vector2::new(20.0, 20.0),
             "Hello you wonderful world!",
+        );
+        text.add(
+            &style2,
+            Vector2::new(200.0, 200.0),
+            "Yellow text on a blue background, splendid!",
         );
 
         graphics::draw(ctx, &mut self.rasterizer.rasterize(&text))?;

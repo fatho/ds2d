@@ -71,7 +71,7 @@ impl Font {
 }
 
 pub struct Text {
-    glyphs: Vec<(usize, rusttype::PositionedGlyph<'static>)>,
+    glyphs: Vec<StyledGlyph>,
 }
 
 impl Text {
@@ -80,14 +80,31 @@ impl Text {
     }
 }
 
+struct StyledGlyph {
+    font_id: usize,
+    color: Color,
+    glyph: rusttype::PositionedGlyph<'static>,
+}
+
 impl Text {
-    pub fn add(&mut self, font: &Font, size: f32, position: Vector2<f32>, text: &str) {
-        let scale = rusttype::Scale::uniform(size);
+    pub fn add(&mut self, style: &Style, position: Vector2<f32>, text: &str) {
+        let scale = rusttype::Scale::uniform(style.size);
         let start = rusttype::point(position.x, position.y);
-        for glyph in font.layout_single_line(scale, start, text) {
-            self.glyphs.push((font.font_id, glyph));
+        for glyph in style.font.layout_single_line(scale, start, text) {
+            let prepared = StyledGlyph {
+                font_id: style.font.font_id,
+                color: style.color,
+                glyph,
+            };
+            self.glyphs.push(prepared);
         }
     }
+}
+
+pub struct Style {
+    pub font: Font,
+    pub size: f32,
+    pub color: Color,
 }
 
 pub struct RasterizedText<'r, 't> {
@@ -101,14 +118,15 @@ impl<'r, 't> Drawable for RasterizedText<'r, 't> {
             Texture::bind(gl::TEXTURE_2D, &self.rasterizer.cache_texture.raw())?;
         }
 
-        for (font_id, glyph) in &self.text.glyphs {
-            self.rasterizer.cache.queue_glyph(*font_id, glyph.clone());
+        for glyph in &self.text.glyphs {
+            self.rasterizer.cache.queue_glyph(glyph.font_id, glyph.glyph.clone());
         }
         self.rasterizer
             .cache
             .cache_queued(|region, data| {
-                // A bit wasteful, but then we can reuse the existing basic pipeline
-                // TODO: investigate if we can add an alpha only mode to shader
+                // A bit wasteful, but then we can reuse the existing basic pipeline.
+                // On the other hand, this is already future-proofed for colorful emoji
+                // rendering (if ever supported by rusttype).
                 let mut rgba_data: Vec<u8> = Vec::new();
                 for alpha in data {
                     rgba_data.extend(&[255, 255, 255, *alpha]);
@@ -135,9 +153,9 @@ impl<'r, 't> Drawable for RasterizedText<'r, 't> {
             Texture::unbind(gl::TEXTURE_2D)?;
         }
 
-        for (font_id, glyph) in &self.text.glyphs {
+        for glyph in &self.text.glyphs {
             if let Ok(Some((tex_coords, screen_coords))) =
-                self.rasterizer.cache.rect_for(*font_id, glyph)
+                self.rasterizer.cache.rect_for(glyph.font_id, &glyph.glyph)
             {
                 let tex = TextureView2D {
                     texture: self.rasterizer.cache_texture.clone(),
@@ -148,7 +166,7 @@ impl<'r, 't> Drawable for RasterizedText<'r, 't> {
                     Quad::textured(tex)
                         .with_position(pos_size.top_left.map(|x| x as f32))
                         .with_size(pos_size.size().map(|x| x as f32))
-                        .with_tint(Color::WHITE), // TODO: make text color configurable
+                        .with_tint(glyph.color),
                 )
             }
         }
