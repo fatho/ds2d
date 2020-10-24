@@ -14,12 +14,14 @@ pub use cgmath;
 pub enum GameError {
     /// There was an error in the graphics subsystem.
     Graphics(graphics::GraphicsError),
+    Io(std::io::Error),
 }
 
 impl std::fmt::Display for GameError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             GameError::Graphics(err) => writeln!(f, "graphics error: {}", err),
+            GameError::Io(err) => writeln!(f, "io error: {}", err),
         }
     }
 }
@@ -35,6 +37,13 @@ impl From<graphics::BackendError> for GameError {
         GameError::Graphics(err.into())
     }
 }
+
+impl From<std::io::Error> for GameError {
+    fn from(err: std::io::Error) -> Self {
+        GameError::Io(err)
+    }
+}
+
 
 pub type GameResult<T> = Result<T, GameError>;
 
