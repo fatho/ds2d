@@ -116,3 +116,12 @@ impl<S: cgmath::BaseFloat> Rect<S> {
         target_from_origin * scale * self_to_origin
     }
 }
+
+impl<S> From<rusttype::Rect<S>> for Rect<S> {
+    fn from(r: rusttype::Rect<S>) -> Self {
+        Self {
+            top_left: Vector2::new(r.min.x, r.min.y),
+            bottom_right: Vector2::new(r.max.x, r.max.y),
+        }
+    }
+}

@@ -11,7 +11,8 @@ Licensed under either of
  * MIT license
    ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
 
-at your option.
+at your option, with the exception of the [`examples/RobotoSlab-Regular.tff`](examples/RobotoSlab-Regular.tff) font,
+which is licensed exclusively under the Apache 2.0 license and comes with its own [license file](examples/RobotoSlab-LICENSE.txt).
 
 ## Contribution
 

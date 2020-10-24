@@ -7,7 +7,7 @@ use super::{
     primitives::BasicPipeline2D,
     primitives::BasicVertex2D,
     primitives::{Pipeline, VertexData},
-    BlendMode, Color, Drawable, GraphicsError, Rect, RenderState, Texture2D,
+    BlendMode, Color, Drawable, GraphicsError, Rect, RenderState, Texture2D, TextureView2D,
 };
 use crate::{CheckGl, Context, GameResult};
 
@@ -105,34 +105,6 @@ impl BatchRender {
         }
         let batch = self.batches.last_mut().unwrap();
         batch.end += num_vertices;
-    }
-}
-
-pub struct TextureView2D {
-    pub texture: Texture2D,
-    pub source: Rect<f32>,
-}
-
-impl TextureView2D {
-    pub fn new(texture: Texture2D, source: Rect<f32>) -> Self {
-        Self { texture, source }
-    }
-
-    pub fn size(&self) -> Vector2<f32> {
-        let uv_size = self.source.size();
-        Vector2 {
-            x: self.texture.width() as f32 * uv_size.x,
-            y: self.texture.height() as f32 * uv_size.y,
-        }
-    }
-}
-
-impl From<Texture2D> for TextureView2D {
-    fn from(texture: Texture2D) -> Self {
-        Self {
-            texture,
-            source: Rect::unit_square(),
-        }
     }
 }
 
@@ -315,7 +287,7 @@ impl Drawable for BatchRender {
                 let cur_tex_id = tex.raw().id();
                 if last_tex_id != cur_tex_id {
                     last_tex_id = cur_tex_id;
-                    Texture::bind(gl::TEXTURE_2D, tex.raw())?;
+                    unsafe { Texture::bind(gl::TEXTURE_2D, tex.raw())? };
                 }
                 // 0 refers to the texture unit, not the texture id
                 self.pipeline.set_texture(Some(0));
@@ -337,7 +309,9 @@ impl Drawable for BatchRender {
         }
         VertexArray::unbind()?;
         Program::unbind()?;
-        Texture::unbind(gl::TEXTURE_2D)?;
+        unsafe {
+            Texture::unbind(gl::TEXTURE_2D)?;
+        }
 
         self.vertices.clear();
         Ok(())

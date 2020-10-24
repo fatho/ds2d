@@ -756,16 +756,16 @@ impl Texture {
         self.id
     }
 
-    pub fn bind(target: GLenum, texture: &Texture) -> Result<(), BackendError> {
-        unsafe { CheckGl!(gl::BindTexture(target, texture.id)) }
+    pub unsafe fn bind(target: GLenum, texture: &Texture) -> Result<(), BackendError> {
+        CheckGl!(gl::BindTexture(target, texture.id))
     }
 
-    pub fn unbind(target: GLenum) -> Result<(), BackendError> {
-        unsafe { CheckGl!(gl::BindTexture(target, 0)) }
+    pub unsafe fn unbind(target: GLenum) -> Result<(), BackendError> {
+        CheckGl!(gl::BindTexture(target, 0))
     }
 
     /// Upload data to a 2D texture.
-    pub fn image2d_rgba(
+    pub unsafe fn image2d_rgba(
         target: GLenum,
         width: GLsizei,
         height: GLsizei,
@@ -778,19 +778,46 @@ impl Texture {
         if num_samples < 0 || num_samples as usize != data.len() {
             return Err(BackendError::InvalidSize);
         }
-        unsafe {
-            CheckGl!(gl::TexImage2D(
-                target,
-                0,
-                gl::RGBA as i32,
-                width,
-                height,
-                0,
-                gl::RGBA,
-                gl::UNSIGNED_BYTE,
-                data.as_ptr() as _
-            ))
+        CheckGl!(gl::TexImage2D(
+            target,
+            0,
+            gl::RGBA as i32,
+            width,
+            height,
+            0,
+            gl::RGBA,
+            gl::UNSIGNED_BYTE,
+            data.as_ptr() as _
+        ))
+    }
+
+    pub unsafe fn subimage2d_rgba(
+        target: GLenum,
+        level: GLint,
+        xoff: GLsizei,
+        yoff: GLsizei,
+        width: GLsizei,
+        height: GLsizei,
+        data: &[u8],
+    ) -> Result<(), BackendError> {
+        let num_samples = width
+            .checked_mul(height)
+            .and_then(|pixels| pixels.checked_mul(4))
+            .ok_or(BackendError::TooLarge)?;
+        if num_samples < 0 || num_samples as usize != data.len() {
+            return Err(BackendError::InvalidSize);
         }
+        CheckGl!(gl::TexSubImage2D(
+            target,
+            level,
+            xoff,
+            yoff,
+            width,
+            height,
+            gl::RGBA,
+            gl::UNSIGNED_BYTE,
+            data.as_ptr() as _
+        ))
     }
 }
 

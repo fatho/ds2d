@@ -42,6 +42,19 @@ impl Color {
     pub fn from_rgb_u8(r: u8, g: u8, b: u8) -> Self {
         Self::from_rgba_u8(r, g, b, 255)
     }
+
+    pub fn to_rgba_u8(self) -> [u8; 4] {
+        [
+            component_f32_to_u8(self.r),
+            component_f32_to_u8(self.g),
+            component_f32_to_u8(self.b),
+            component_f32_to_u8(self.a),
+        ]
+    }
+}
+
+fn component_f32_to_u8(f: f32) -> u8 {
+    (f * 255.0).min(255.0).max(0.0) as u8
 }
 
 impl From<[f32; 4]> for Color {

@@ -7,6 +7,11 @@ pub enum GraphicsError {
     Backend(BackendError),
     /// An error when dealing with image data.
     Image(image::ImageError),
+    /// Could not parse font data
+    InvalidFont,
+    /// Could not cache the glyphs of the text to be rendered,
+    /// because the cache is too small.
+    InsufficientGlyphCache,
 }
 
 impl From<image::ImageError> for GraphicsError {
@@ -26,6 +31,8 @@ impl std::fmt::Display for GraphicsError {
         match self {
             GraphicsError::Image(err) => write!(f, "Failed to load image: {}", err),
             GraphicsError::Backend(err) => write!(f, "Failed to create texture: {}", err),
+            GraphicsError::InvalidFont => write!(f, "Could not parse font data"),
+            GraphicsError::InsufficientGlyphCache => write!(f, "Glyph cache too small"),
         }
     }
 }
