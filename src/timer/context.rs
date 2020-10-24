@@ -31,7 +31,7 @@ impl TimerContext {
         self.accumulator += delta;
 
         self.average_delta_seconds = {
-            let alpha = 0.99;
+            let alpha = 0.9;
             self.average_delta_seconds * alpha + delta.as_secs_f64() * (1.0 - alpha)
         };
     }
