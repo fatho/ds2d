@@ -1,6 +1,6 @@
 use cgmath::{Deg, Rad, Vector2};
 use ds2d::{
-    graphics::{self, Color, Rect},
+    graphics::{self, Color},
     input::keyboard,
     timer, Context, GameResult,
 };
@@ -17,25 +17,10 @@ pub struct HelloGame {
 impl HelloGame {
     pub fn new(ctx: &mut Context) -> GameResult<HelloGame> {
         let tex = graphics::Texture2D::from_memory(ctx, include_bytes!("face.png"))?;
-        let sprite = graphics::Sprite::new(
-            ctx,
-            tex,
-            Rect {
-                x: 0.0,
-                y: 0.0,
-                w: 1.0,
-                h: 1.0,
-            },
-            Rect {
-                x: 0.0,
-                y: 0.0,
-                w: 64.0,
-                h: 64.0,
-            },
-            Vector2 { x: 0.5, y: 0.5 },
-            Deg(0.0).into(),
-            Color::WHITE,
-        )?;
+        let sprite = graphics::Sprite::build(tex)
+            .with_size(Vector2::new(64.0, 64.0))
+            .with_origin(Vector2::new(0.5, 0.5))
+            .build(ctx)?;
 
         let player_pos = Vector2::new(100.0, 100.0);
         let player_rotation = Deg(45.0).into();

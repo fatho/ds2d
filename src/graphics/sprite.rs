@@ -12,6 +12,68 @@ use super::{
 };
 use crate::{Context, GameResult};
 
+pub struct SpriteBuilder {
+    /// The texture to draw.
+    texture: Texture2D,
+    /// The part of the texture that should be drawn (UV coordinates)
+    source: Rect<f32>,
+    /// The color that is multiplied with the texture color.
+    tint: Color,
+
+    /// The position of the origin in global coordinates.
+    position: Vector2<f32>,
+    /// The size of the Sprite in global coordinates.
+    size: Vector2<f32>,
+    /// The origin for position and rotation in local coordinates where `(0, 0)` is the top-left
+    /// and `(1, 1)` is the bottom-right corner of the sprite.
+    origin: Vector2<f32>,
+    /// Rotation angle around the origin.
+    rotation: Rad<f32>,
+}
+
+impl SpriteBuilder {
+    fn new(texture: Texture2D) -> Self {
+        Self {
+            source: Rect { x: 0.0, y: 0.0, w: 1.0, h: 1.0 },
+            tint: Color::WHITE,
+            position: Vector2 { x: 0.0, y: 0.0 },
+            size: Vector2 { x: texture.width() as f32, y: texture.height() as f32 },
+            origin: Vector2 { x: 0.0, y: 0.0 },
+            rotation: Rad(0.0),
+            texture,
+        }
+    }
+
+    pub fn with_source(mut self, source: Rect<f32>) -> Self {
+        self.source = source;
+        self
+    }
+
+    pub fn with_tint(mut self, tint: Color) -> Self {
+        self.tint = tint;
+        self
+    }
+
+    pub fn with_origin(mut self, origin: Vector2<f32>) -> Self {
+        self.origin = origin;
+        self
+    }
+
+    pub fn with_position(mut self, position: Vector2<f32>) -> Self {
+        self.position = position;
+        self
+    }
+
+    pub fn with_size(mut self, size: Vector2<f32>) -> Self {
+        self.size = size;
+        self
+    }
+
+    pub fn build(self, ctx: &mut Context) -> Result<Sprite, BackendError> {
+        Sprite::new(ctx, self.texture, self.source, self.position, self.size, self.origin, self.rotation, self.tint)
+    }
+}
+
 pub struct Sprite {
     pipeline: BasicPipeline2D,
     /// Vertex buffer object
@@ -24,19 +86,29 @@ pub struct Sprite {
     source: Rect<f32>,
     tint: Color,
 
-    // where to draw it?
-    destination: Rect<f32>,
+    /// The position of the origin in global coordinates.
+    position: Vector2<f32>,
+    /// The size of the Sprite in global coordinates.
+    size: Vector2<f32>,
+    /// The origin for position and rotation in local coordinates where `(0, 0)` is the top-left
+    /// and `(1, 1)` is the bottom-right corner of the sprite.
     origin: Vector2<f32>,
+    /// Rotation angle around the origin.
     rotation: Rad<f32>,
     // TODO: sampler options
 }
 
 impl Sprite {
+    pub fn build(texture: Texture2D) -> SpriteBuilder {
+        SpriteBuilder::new(texture)
+    }
+
     pub fn new(
         ctx: &mut Context,
         texture: Texture2D,
         source: Rect<f32>,
-        destination: Rect<f32>,
+        position: Vector2<f32>,
+        size: Vector2<f32>,
         origin: Vector2<f32>,
         rotation: Rad<f32>,
         tint: Color,
@@ -96,7 +168,8 @@ impl Sprite {
             vao,
             texture,
             source,
-            destination,
+            position,
+            size,
             tint,
             origin,
             rotation,
@@ -127,22 +200,13 @@ impl Sprite {
         self.source
     }
 
-    pub fn destination(&self) -> Rect<f32> {
-        self.destination
-    }
-
-    // TODO: split destination rect into position + size?
-    pub fn set_destination(&mut self, dest: Rect<f32>) {
-        self.destination = dest;
-    }
-
     pub fn position(&self) -> Vector2<f32> {
-        self.destination.position()
+        self.position
     }
 
     // TODO: split position rect into position + size?
     pub fn set_position(&mut self, pos: Vector2<f32>) {
-        self.destination.set_position(pos)
+        self.position = pos
     }
 
     pub fn rotation(&self) -> Rad<f32> {
@@ -164,8 +228,8 @@ impl Sprite {
     pub fn local_transform(&self) -> Matrix3<f32> {
         let origin = super::transform::translate(-self.origin);
         let rotate = super::transform::rotate(self.rotation);
-        let scale = super::transform::scale(self.destination.size());
-        let position = super::transform::translate(self.destination.position());
+        let scale = super::transform::scale(self.size);
+        let position = super::transform::translate(self.position);
         position * scale * rotate * origin
     }
 }
