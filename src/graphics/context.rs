@@ -82,7 +82,7 @@ impl GraphicsContext {
         let mut can_debug = false;
         for i in 0..num_extensions {
             let ext = unsafe { gl::GetStringi(gl::EXTENSIONS, i as u32) };
-            if ! ext.is_null() {
+            if !ext.is_null() {
                 let ext = unsafe { std::ffi::CStr::from_ptr(ext as *const i8).to_string_lossy() };
                 if ext == "GL_KHR_debug" {
                     can_debug = true;

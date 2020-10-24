@@ -17,6 +17,14 @@ struct Texture2DImpl {
     height: u32,
 }
 
+impl PartialEq for Texture2D {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.inner, &other.inner) || self.inner.raw.id() == other.inner.raw.id()
+    }
+}
+
+impl Eq for Texture2D {}
+
 impl Texture2D {
     pub fn from_memory(ctx: &mut Context, data: &[u8]) -> Result<Self, super::GraphicsError> {
         let image = image::load_from_memory(data)?.into_rgba();

@@ -16,7 +16,7 @@ pub use sprite::Sprite;
 mod blend;
 pub use blend::BlendMode;
 mod batch;
-pub use batch::SpriteBatch;
+pub use batch::BatchRender;
 
 pub mod primitives;
 pub use primitives::RenderState;

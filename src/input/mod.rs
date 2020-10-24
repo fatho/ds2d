@@ -18,7 +18,11 @@ pub mod keyboard {
     /// Emulate an analog axis with two keys (useful for movement with WSAD).
     /// The `negative_key` corresponds to -1, the `positive_key` to 1.
     /// If both keys are or no key is pressed, 0 is returned.
-    pub fn axis1d<S: cgmath::BaseNum>(ctx: &mut Context, negative_key: KeyCode, positive_key: KeyCode) -> S {
+    pub fn axis1d<S: cgmath::BaseNum>(
+        ctx: &mut Context,
+        negative_key: KeyCode,
+        positive_key: KeyCode,
+    ) -> S {
         let mut output = S::zero();
         if is_down(ctx, negative_key) {
             output -= S::one()

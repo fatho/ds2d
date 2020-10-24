@@ -34,10 +34,18 @@ pub struct SpriteBuilder {
 impl SpriteBuilder {
     fn new(texture: Texture2D) -> Self {
         Self {
-            source: Rect { x: 0.0, y: 0.0, w: 1.0, h: 1.0 },
+            source: Rect {
+                x: 0.0,
+                y: 0.0,
+                w: 1.0,
+                h: 1.0,
+            },
             tint: Color::WHITE,
             position: Vector2 { x: 0.0, y: 0.0 },
-            size: Vector2 { x: texture.width() as f32, y: texture.height() as f32 },
+            size: Vector2 {
+                x: texture.width() as f32,
+                y: texture.height() as f32,
+            },
             origin: Vector2 { x: 0.0, y: 0.0 },
             rotation: Rad(0.0),
             texture,
@@ -70,7 +78,16 @@ impl SpriteBuilder {
     }
 
     pub fn build(self, ctx: &mut Context) -> Result<Sprite, BackendError> {
-        Sprite::new(ctx, self.texture, self.source, self.position, self.size, self.origin, self.rotation, self.tint)
+        Sprite::new(
+            ctx,
+            self.texture,
+            self.source,
+            self.position,
+            self.size,
+            self.origin,
+            self.rotation,
+            self.tint,
+        )
     }
 }
 

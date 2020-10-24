@@ -29,9 +29,15 @@ impl ds2d::Game for InputGame {
             let green_axis: f32 = keyboard::axis1d(ctx, keyboard::KeyCode::A, keyboard::KeyCode::S);
             let blue_axis: f32 = keyboard::axis1d(ctx, keyboard::KeyCode::Z, keyboard::KeyCode::X);
 
-            self.color.r = (self.color.r + red_axis * timestep * color_per_second).max(0.0).min(1.0);
-            self.color.g = (self.color.g + green_axis * timestep * color_per_second).max(0.0).min(1.0);
-            self.color.b = (self.color.b + blue_axis * timestep * color_per_second).max(0.0).min(1.0);
+            self.color.r = (self.color.r + red_axis * timestep * color_per_second)
+                .max(0.0)
+                .min(1.0);
+            self.color.g = (self.color.g + green_axis * timestep * color_per_second)
+                .max(0.0)
+                .min(1.0);
+            self.color.b = (self.color.b + blue_axis * timestep * color_per_second)
+                .max(0.0)
+                .min(1.0);
         }
         Ok(())
     }

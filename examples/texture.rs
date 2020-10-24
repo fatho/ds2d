@@ -46,7 +46,11 @@ impl ds2d::Game for HelloGame {
 
         let factor = timer::interpolation_factor(ctx);
 
-        self.sprite.set_position(self.player_pos_prev.lerp(self.player_pos, factor).map(|x| x as f32));
+        self.sprite.set_position(
+            self.player_pos_prev
+                .lerp(self.player_pos, factor)
+                .map(|x| x as f32),
+        );
         self.sprite.set_rotation(Rad(
             ((1.0 - factor) * self.player_rotation_prev.0 + factor * self.player_rotation.0) as f32
         ));
