@@ -35,10 +35,8 @@ impl SpriteBuilder {
     fn new(texture: Texture2D) -> Self {
         Self {
             source: Rect {
-                x: 0.0,
-                y: 0.0,
-                w: 1.0,
-                h: 1.0,
+                top_left: Vector2::new(0.0, 0.0),
+                bottom_right: Vector2::new(1.0, 1.0),
             },
             tint: Color::WHITE,
             position: Vector2 { x: 0.0, y: 0.0 },
@@ -142,8 +140,8 @@ impl Sprite {
         VertexArray::bind(&vao)?;
         Buffer::bind(gl::ARRAY_BUFFER, &vbo)?;
         unsafe {
-            let top_left = source.position();
-            let bottom_right = top_left + source.size();
+            let top_left = source.top_left;
+            let bottom_right = source.bottom_right;
 
             let vertices = &[
                 BasicVertex2D {

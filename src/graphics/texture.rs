@@ -5,7 +5,7 @@ use crate::{CheckGl, Context};
 use super::context::Texture;
 
 /// A reference counted 2D texture that can be cheaply shared between several sprites.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Texture2D {
     inner: Rc<Texture2DImpl>,
 }
