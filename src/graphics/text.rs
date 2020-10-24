@@ -38,7 +38,7 @@ impl Rasterizer {
         Ok(Font { inner, font_id })
     }
 
-    pub fn rasterize<'r, 't>(&'r mut self, text: &'t Text) -> RasterizedText<'r, 't> {
+    pub fn rasterize<'r, 't>(&'r mut self, text: &'t TextBuffer) -> RasterizedText<'r, 't> {
         RasterizedText {
             rasterizer: self,
             text,
@@ -70,14 +70,8 @@ impl Font {
     }
 }
 
-pub struct Text {
+pub struct TextBuffer {
     glyphs: Vec<StyledGlyph>,
-}
-
-impl Text {
-    pub fn new() -> Self {
-        Self { glyphs: Vec::new() }
-    }
 }
 
 struct StyledGlyph {
@@ -86,7 +80,17 @@ struct StyledGlyph {
     glyph: rusttype::PositionedGlyph<'static>,
 }
 
-impl Text {
+impl TextBuffer {
+    pub fn new() -> Self {
+        Self { glyphs: Vec::new() }
+    }
+
+    pub fn singleton<S: AsRef<str>>(style: &Style, position: Vector2<f32>, text: S) -> Self {
+        let mut buf = Self::new();
+        buf.add(style, position, text);
+        buf
+    }
+
     pub fn add<S: AsRef<str>>(&mut self, style: &Style, position: Vector2<f32>, text: S) {
         let scale = rusttype::Scale::uniform(style.size);
         let start = rusttype::point(position.x, position.y);
@@ -109,7 +113,7 @@ pub struct Style {
 
 pub struct RasterizedText<'r, 't> {
     rasterizer: &'r mut Rasterizer,
-    text: &'t Text,
+    text: &'t TextBuffer,
 }
 
 impl<'r, 't> Drawable for RasterizedText<'r, 't> {

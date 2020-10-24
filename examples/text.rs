@@ -36,7 +36,7 @@ impl ds2d::Game for HelloGame {
             color: Color::from_rgba(1.0, 1.0, 0.0, 1.0),
         };
 
-        let mut text = graphics::text::Text::new();
+        let mut text = graphics::text::TextBuffer::new();
         text.add(
             &style1,
             Vector2::new(20.0, 20.0),
