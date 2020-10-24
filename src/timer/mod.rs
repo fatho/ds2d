@@ -57,4 +57,7 @@ pub fn interpolation_factor(ctx: &mut Context) -> f64 {
     ctx.timer.accumulator.as_secs_f64() * ctx.timer.updates_per_second
 }
 
-// TODO: implement FPS timer
+/// Exponential moving average of the time that has elapsed since the last frame.
+pub fn average_delta(ctx: &mut Context) -> Duration {
+    Duration::from_secs_f64(ctx.timer.average_delta_seconds)
+}

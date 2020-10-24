@@ -87,10 +87,10 @@ struct StyledGlyph {
 }
 
 impl Text {
-    pub fn add(&mut self, style: &Style, position: Vector2<f32>, text: &str) {
+    pub fn add<S: AsRef<str>>(&mut self, style: &Style, position: Vector2<f32>, text: S) {
         let scale = rusttype::Scale::uniform(style.size);
         let start = rusttype::point(position.x, position.y);
-        for glyph in style.font.layout_single_line(scale, start, text) {
+        for glyph in style.font.layout_single_line(scale, start, text.as_ref()) {
             let prepared = StyledGlyph {
                 font_id: style.font.font_id,
                 color: style.color,

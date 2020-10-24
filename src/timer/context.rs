@@ -8,6 +8,8 @@ pub(crate) struct TimerContext {
     pub current_frame: Instant,
     /// Accumulated, but not yet processed frame time.
     pub accumulator: Duration,
+    /// Exponential moving average of the frame time
+    pub average_delta_seconds: f64,
 }
 
 impl TimerContext {
@@ -18,6 +20,7 @@ impl TimerContext {
             last_frame: now,
             current_frame: now,
             accumulator: Duration::default(),
+            average_delta_seconds: 1.0,
         }
     }
 
@@ -26,5 +29,10 @@ impl TimerContext {
         self.current_frame = Instant::now();
         let delta = self.current_frame - self.last_frame;
         self.accumulator += delta;
+
+        self.average_delta_seconds = {
+            let alpha = 0.99;
+            self.average_delta_seconds * alpha + delta.as_secs_f64() * (1.0 - alpha)
+        };
     }
 }

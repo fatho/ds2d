@@ -47,6 +47,12 @@ impl ds2d::Game for HelloGame {
             Vector2::new(200.0, 200.0),
             "Yellow text on a blue background, splendid!",
         );
+        let fps = 1.0 / ds2d::timer::average_delta(ctx).as_secs_f64();
+        text.add(
+            &style1,
+            Vector2::new(20.0, 80.0),
+            format!("We're running at a steady {:.2} fps.", fps),
+        );
 
         graphics::draw(ctx, &mut self.rasterizer.rasterize(&text))?;
 
@@ -67,6 +73,8 @@ fn main() {
 
     let (event_loop, mut context) = match ds2d::ContextBuilder::new()
         .debug(true)
+        // no vsync for more impressive (but useless) FPS
+        .vsync(false)
         .title("Hello World!")
         .build()
     {

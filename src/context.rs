@@ -45,6 +45,8 @@ pub struct ContextBuilder {
     title: String,
     size: LogicalSize<f64>,
     debug: bool,
+    /// Can be useful to turn off for measuring performance
+    vsync: bool,
 }
 
 impl Default for ContextBuilder {
@@ -62,6 +64,7 @@ impl ContextBuilder {
                 height: 600.0,
             },
             debug: cfg!(debug_assertions),
+            vsync: true,
         }
     }
 
@@ -85,6 +88,12 @@ impl ContextBuilder {
         self
     }
 
+    /// Enable VSync.
+    pub fn vsync(mut self, vsync: bool) -> Self {
+        self.vsync = vsync;
+        self
+    }
+
     /// Create a window with an OpenGL context, and the corresponding event loop.
     /// The returned `ds2d::Context` can be used for initializing the Game state
     /// before starting the game loop.
@@ -95,7 +104,7 @@ impl ContextBuilder {
             .with_resizable(true)
             .with_inner_size(self.size);
         let windowed_context = glutin::ContextBuilder::new()
-            .with_vsync(true)
+            .with_vsync(self.vsync)
             .with_gl_debug_flag(self.debug)
             .build_windowed(window_builder, &event_loop)?;
         // The window is dropped in case of an error
