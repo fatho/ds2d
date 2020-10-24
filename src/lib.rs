@@ -7,6 +7,9 @@ pub mod graphics;
 pub mod input;
 pub mod timer;
 
+// expose 3rd party libraries
+pub use cgmath;
+
 #[derive(Debug)]
 pub enum GameError {
     /// There was an error in the graphics subsystem.
