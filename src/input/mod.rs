@@ -18,33 +18,33 @@ pub mod keyboard {
     /// Emulate an analog axis with two keys (useful for movement with WSAD).
     /// The `negative_key` corresponds to -1, the `positive_key` to 1.
     /// If both keys are or no key is pressed, 0 is returned.
-    pub fn axis1d(ctx: &mut Context, negative_key: KeyCode, positive_key: KeyCode) -> f32 {
-        let mut output = 0;
+    pub fn axis1d<S: cgmath::BaseNum>(ctx: &mut Context, negative_key: KeyCode, positive_key: KeyCode) -> S {
+        let mut output = S::zero();
         if is_down(ctx, negative_key) {
-            output -= 1
+            output -= S::one()
         }
         if is_down(ctx, positive_key) {
-            output += 1
+            output += S::one()
         }
-        output as f32
+        output
     }
 
     /// Emulate two analog axes with four keys (useful for movement with WSAD).
     /// The magnitude of the resulting vector is at most 1.
-    pub fn axis2d(
+    pub fn axis2d<S: cgmath::BaseFloat>(
         ctx: &mut Context,
         x_neg: KeyCode,
         x_pos: KeyCode,
         y_neg: KeyCode,
         y_pos: KeyCode,
-    ) -> Vector2<f32> {
+    ) -> Vector2<S> {
         use cgmath::InnerSpace;
 
         let x = axis1d(ctx, x_neg, x_pos);
         let y = axis1d(ctx, y_neg, y_pos);
         let v = Vector2::new(x, y);
         let len = v.magnitude();
-        if len > 1.0 {
+        if len > S::one() {
             v / len
         } else {
             v

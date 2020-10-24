@@ -136,6 +136,15 @@ impl Sprite {
         self.destination = dest;
     }
 
+    pub fn position(&self) -> Vector2<f32> {
+        self.destination.position()
+    }
+
+    // TODO: split position rect into position + size?
+    pub fn set_position(&mut self, pos: Vector2<f32>) {
+        self.destination.set_position(pos)
+    }
+
     pub fn rotation(&self) -> Rad<f32> {
         self.rotation
     }

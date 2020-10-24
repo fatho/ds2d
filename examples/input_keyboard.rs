@@ -20,15 +20,18 @@ impl ds2d::Game for InputGame {
     }
 
     fn update(&mut self, ctx: &mut ds2d::Context) -> GameResult<()> {
-        while ds2d::timer::run_fixed_timestep(ctx, 60.0, 5) {
-            // Emulate analog axes with binary keyboard input
-            let red_axis = keyboard::axis1d(ctx, keyboard::KeyCode::Q, keyboard::KeyCode::W);
-            let green_axis = keyboard::axis1d(ctx, keyboard::KeyCode::A, keyboard::KeyCode::S);
-            let blue_axis = keyboard::axis1d(ctx, keyboard::KeyCode::Z, keyboard::KeyCode::X);
+        let color_per_second = 0.1;
+        let timestep = ds2d::timer::timestep(ctx).as_secs_f32();
 
-            self.color.r = (self.color.r + red_axis / 600.0).max(0.0).min(1.0);
-            self.color.g = (self.color.g + green_axis / 600.0).max(0.0).min(1.0);
-            self.color.b = (self.color.b + blue_axis / 600.0).max(0.0).min(1.0);
+        while ds2d::timer::run_fixed_timestep(ctx, 5) {
+            // Emulate analog axes with binary keyboard input
+            let red_axis: f32 = keyboard::axis1d(ctx, keyboard::KeyCode::Q, keyboard::KeyCode::W);
+            let green_axis: f32 = keyboard::axis1d(ctx, keyboard::KeyCode::A, keyboard::KeyCode::S);
+            let blue_axis: f32 = keyboard::axis1d(ctx, keyboard::KeyCode::Z, keyboard::KeyCode::X);
+
+            self.color.r = (self.color.r + red_axis * timestep * color_per_second).max(0.0).min(1.0);
+            self.color.g = (self.color.g + green_axis * timestep * color_per_second).max(0.0).min(1.0);
+            self.color.b = (self.color.b + blue_axis * timestep * color_per_second).max(0.0).min(1.0);
         }
         Ok(())
     }

@@ -2,6 +2,8 @@ use std::time::{Duration, Instant};
 
 #[derive(Debug)]
 pub(crate) struct TimerContext {
+    /// The desired number of updates to the game state per second.
+    pub updates_per_second: f64,
     pub last_frame: Instant,
     pub current_frame: Instant,
     /// Accumulated, but not yet processed frame time.
@@ -12,6 +14,7 @@ impl TimerContext {
     pub fn new() -> Self {
         let now = Instant::now();
         Self {
+            updates_per_second: 60.0,
             last_frame: now,
             current_frame: now,
             accumulator: Duration::default(),

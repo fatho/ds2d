@@ -8,6 +8,10 @@ use log::error;
 
 pub struct HelloGame {
     sprite: graphics::Sprite,
+    player_pos_prev: Vector2<f64>,
+    player_rotation_prev: Rad<f64>,
+    player_pos: Vector2<f64>,
+    player_rotation: Rad<f64>,
 }
 
 impl HelloGame {
@@ -23,24 +27,44 @@ impl HelloGame {
                 h: 1.0,
             },
             Rect {
-                x: 100.0,
-                y: 100.0,
+                x: 0.0,
+                y: 0.0,
                 w: 64.0,
                 h: 64.0,
             },
             Vector2 { x: 0.5, y: 0.5 },
-            Deg(45.0).into(),
-            //Deg(0.0).into(),
+            Deg(0.0).into(),
             Color::WHITE,
         )?;
 
-        Ok(Self { sprite })
+        let player_pos = Vector2::new(100.0, 100.0);
+        let player_rotation = Deg(45.0).into();
+
+        // The animation remains smooth even when setting this to e.g 5 ups.
+        timer::set_updates_per_second(ctx, 30.0);
+
+        Ok(Self {
+            sprite,
+            player_pos,
+            player_pos_prev: player_pos,
+            player_rotation,
+            player_rotation_prev: player_rotation,
+        })
     }
 }
 
 impl ds2d::Game for HelloGame {
     fn draw(&mut self, ctx: &mut ds2d::Context) -> GameResult<()> {
+        use cgmath::VectorSpace;
+
         graphics::clear(ctx, Color::CORNFLOWER_BLUE);
+
+        let factor = timer::interpolation_factor(ctx);
+
+        self.sprite.set_position(self.player_pos_prev.lerp(self.player_pos, factor).map(|x| x as f32));
+        self.sprite.set_rotation(Rad(
+            ((1.0 - factor) * self.player_rotation_prev.0 + factor * self.player_rotation.0) as f32
+        ));
         graphics::draw(ctx, &mut self.sprite)?;
         Ok(())
     }
@@ -54,15 +78,13 @@ impl ds2d::Game for HelloGame {
             keyboard::KeyCode::S,
         );
         let pixel_per_second = 200.0;
-        let update_rate = 60.0;
-        while timer::run_fixed_timestep(ctx, update_rate, 10) {
-            let delta = v * pixel_per_second / update_rate as f32;
-            let delta_angle = v.x / update_rate as f32;
-            let mut dest = self.sprite.destination();
-            dest.set_position(dest.position() + delta);
-            self.sprite.set_destination(dest);
-            self.sprite
-                .set_rotation(self.sprite.rotation() + Rad(delta_angle));
+        while timer::run_fixed_timestep(ctx, 10) {
+            let delta = v * pixel_per_second * timer::timestep(ctx).as_secs_f64();
+            let delta_angle = v.x * timer::timestep(ctx).as_secs_f64();
+            self.player_pos_prev = self.player_pos;
+            self.player_pos += delta;
+            self.player_rotation_prev = self.player_rotation;
+            self.player_rotation += Rad(delta_angle);
         }
         Ok(())
     }
