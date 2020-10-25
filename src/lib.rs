@@ -44,7 +44,6 @@ impl From<std::io::Error> for GameError {
     }
 }
 
-
 pub type GameResult<T> = Result<T, GameError>;
 
 /// Implemented by the struct holding the game state.

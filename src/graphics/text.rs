@@ -123,7 +123,9 @@ impl<'r, 't> Drawable for RasterizedText<'r, 't> {
         }
 
         for glyph in &self.text.glyphs {
-            self.rasterizer.cache.queue_glyph(glyph.font_id, glyph.glyph.clone());
+            self.rasterizer
+                .cache
+                .queue_glyph(glyph.font_id, glyph.glyph.clone());
         }
         self.rasterizer
             .cache
