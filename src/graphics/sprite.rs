@@ -219,9 +219,16 @@ impl Sprite {
         self.position
     }
 
-    // TODO: split position rect into position + size?
     pub fn set_position(&mut self, pos: Vector2<f32>) {
         self.position = pos
+    }
+
+    pub fn size(&self) -> Vector2<f32> {
+        self.size
+    }
+
+    pub fn set_size(&mut self, size: Vector2<f32>) {
+        self.size = size
     }
 
     pub fn rotation(&self) -> Rad<f32> {
