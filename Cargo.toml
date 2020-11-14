@@ -22,7 +22,7 @@ include = [
 glutin = "0.25.1"
 log = "0.4.11"
 gl = "0.14.0"
-cgmath = { version = "0.17.0", features = ["swizzle"] }
+cgmath = { version = "0.17.0", features = ["swizzle", "serde"] }
 image = "0.23.10"
 rusttype = { version = "0.9.2", features = ["gpu_cache"] }
 
